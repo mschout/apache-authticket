@@ -2,7 +2,7 @@
 # $Id$
 #
 
-package Apache::TicketAccess;
+package Apache::AuthTicket;
 
 use strict;
 use vars qw($VERSION %DEFAULTS %CONFIG);
@@ -712,36 +712,36 @@ __END__
 
 =head1 NAME
 
-Apache::TicketAccess - Cookie based access module.
+Apache::AuthTicket - Cookie based access module.
 
 =head1 SYNOPSIS
 
  # in httpd.conf
  <Location /protected>
-   PerlAccessHandler Apache::TicketAccess->authenticate
+   PerlAccessHandler Apache::AuthTicket->authenticate
    PerlSetVar        TicketRealm protected
  </Location>
 
  <Location /loginform>
    SetHandler  perl-script
-   PerlHandler Apache::TicketAccess->login_form
+   PerlHandler Apache::AuthTicket->login_form
    PerlSetVar  TicketRealm protected
  </Location>
 
  <Location /login>
    SetHandler  perl-script
-   PerlHandler Apache::TicketAccess->login
+   PerlHandler Apache::AuthTicket->login
    PerlSetVar  TicketRealm protected
  </Location>
 
  <Location /protected/logout>
    SetHandler  perl-script
-   PerlHandler Apache::TicketAccess->logout
+   PerlHandler Apache::AuthTicket->logout
    PerlSetVar  TicketRealm protected
  </Location>
 
  # in startup.pl
- Apache::TicketAccess->configure('protected', {
+ Apache::AuthTicket->configure('protected', {
      TicketUserTable       => 'users:usenaem:passwd',
      TicketTable           => 'tickets:ticket_hash',
      TicketSecretTable     => 'ticketsecrets:sec_data:sec_version',
@@ -765,7 +765,7 @@ the user is redirected to the URL specified by I<TicketLoginForm>, and access
 to the requested page is denied.
 
 This module was desigend to be as extensible as possible.  Its quite likely
-that you will want to create your own subclass of I<Apache::TicketAccess> in
+that you will want to create your own subclass of I<Apache::AuthTicket> in
 order to customize various aspects of this module (show your own versions of
 the forms, override database methods etc). 
 
@@ -819,15 +819,15 @@ these is the block specifying your access restrictions.  This block should look
 somrthing like this:
 
  <Location /protected>
-   PerlAccessHandler Apache::TicketAccess->authenticate
+   PerlAccessHandler Apache::AuthTicket->authenticate
    PerlSetVar        TicketRealm protected
  </Location>
 
-I<TicketRealm> is just a label that is used to tell Apache::TicketAccess which
+I<TicketRealm> is just a label that is used to tell Apache::AuthTicket which
 configuration to use for this block.
 
 This specifys that any URL in /protected must pass authentication through
-I<Apache::TicketAccess>.  Directory blocks should also work fine here (although
+I<Apache::AuthTicket>.  Directory blocks should also work fine here (although
 I have not tested this).
 
 The remaining blocks control how to display the login form, and the login and
@@ -835,39 +835,39 @@ logout urls.  These blocks should look similar to this:
 
  <Location /loginform>
    SetHandler  perl-script
-   PerlHandler Apache::TicketAccess->login_form
+   PerlHandler Apache::AuthTicket->login_form
    PerlSetVar  TicketRealm protected
  </Location>
 
  <Location /login>
    SetHandler  perl-script
-   PerlHandler Apache::TicketAccess->login
+   PerlHandler Apache::AuthTicket->login
    PerlSetVar  TicketRealm protected
  </Location>
 
  <Location /protected/logout>
    SetHandler  perl-script
-   PerlHandler Apache::TicketAccess->logout
+   PerlHandler Apache::AuthTicket->logout
    PerlSetVar  TicketRealm protected
  </Location>
 
-It should be noted that Apache::TicketAccess is Apache::Filter aware.  So if
-you implement your own subclass of Apache::TicketAccess that emits SSI tags,
+It should be noted that Apache::AuthTicket is Apache::Filter aware.  So if
+you implement your own subclass of Apache::AuthTicket that emits SSI tags,
 you could do something like this:
 
  <Location /loginform>
    SetHandler  perl-script
-   PerlHandler Apache::TicketAccess->login_form Apache::SSI
+   PerlHandler Apache::AuthTicket->login_form Apache::SSI
    PerlSetVar  TicketRealm protected
    PerlSetVar  Filter      On
  </Location>
 
 =head2 Apache Configuration - startup.pl
 
-Any TicketAccess configuration items can be set in startup.pl.  You can
+Any AuthTicket configuration items can be set in startup.pl.  You can
 configure a TicketRealm using:
 
- Apache::TicketAccess->configure(String realm, *Hash config)
+ Apache::AuthTicket->configure(String realm, *Hash config)
 
 config is a reference to a hash specifying configuation values.
 
@@ -1039,7 +1039,7 @@ This table is configured by the I<TicketSecretTable> directive.
 
 =head1 METHODS
 
-This is not a complete listing of methods contained in I<Apache::TicketAccess>.
+This is not a complete listing of methods contained in I<Apache::AuthTicket>.
 Rather, it is a listing of methods that you might want to overload if you were
 subclassing this module.  Other methods that exist in the module are probably
 not useful to you.

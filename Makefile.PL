@@ -43,8 +43,8 @@ chk_version( 'Digest::MD5' => 0 ) or
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 WriteMakefile(
-    NAME          => 'Apache::TicketAccess',
-    VERSION_FROM  => 'TicketAccess.pm',
+    NAME          => 'Apache::AuthTicket',
+    VERSION_FROM  => 'AuthTicket.pm',
     AUTHOR        => 'Michael Schout <mschout@gkg.net>',
     ABSTRACT      => 'Ticket based authentication system for Apache'
 );

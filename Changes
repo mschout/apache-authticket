@@ -1,4 +1,7 @@
 Release 0.11
+   o Renamed module to Apache::AuthTicket after discovering that
+	   Apache::TicketAccess is distributed with the mod_perl book examples (but
+		 not on CPAN).  Doug MacEachern requested that I rename the module.
    o Split up query to fetch the server secret so that the LIMIT clause is
 	   not needed (for Sybase ASE backends, thanks to Eivind Trondsen)
 	 o Changed cookie name to REALM_Ticket - allows users to be logged into
@@ -8,4 +11,4 @@ Release 0.11
 	 o Added support for crypt() style passwords.
 
 Relaese 0.10
-   o Initial public release.
+   o Initial public release: Apache::TicketAccess 0.10

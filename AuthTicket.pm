@@ -406,7 +406,14 @@ sub make_ticket {
         'hash'    => $hash
     );
 
-    $this->save_hash($key{'hash'});
+    eval {
+        $this->save_hash($key{'hash'});
+    };
+    if ($@) {
+        warn "save_hash() failed, treating this request as invalid login.\n";
+        warn "reason: $@";
+        return;
+    }
 
     return $this->_pack_ticket(%key);
 }

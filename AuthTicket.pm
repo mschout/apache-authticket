@@ -24,6 +24,7 @@ $VERSION = '0.01';
     TicketDBPassword      => 'test',
     TicketTable           => 'tickets:ticket_hash',
     TicketUserTable       => 'users:usrname:passwd',
+    TicketPasswordStyle   => 'cleartext',
     TicketSecretTable     => 'ticketsecrets:sec_data:sec_version',
     TicketExpires         => 15,
     TicketDomain          => '',
@@ -683,7 +684,7 @@ the forms, override database methods etc).
 
 This system uses cookies to authenticate users.  When a user is authenticated
 throught this system, they are issued a cookie consisting of the time, the
-username of the user, the expriation time of hte cookie, a "secret" version
+username of the user, the expriation time of the cookie, a "secret" version
 (described later), and a cryptographic signature.  The cryptographic signature
 is generated using the MD5 algorithm on the cookie data and a "secret" key that
 is read from a database.  Each secret key also has a version number associated
@@ -692,8 +693,8 @@ without invalidating the current valid tickets.   For example, the site
 administrator might periodically insert a new secret key into the databse
 periodically, and flush secrets that are more than 2 days old.  Since the
 ticket issued to the user contains the secret version, the authentication
-process will still allow tickets to be authorized as long as they exist in the
-tickets table. 
+process will still allow tickets to be authorized as long as the corresponding
+secrets exist in the tickets table. 
 
 The actual contents and length of secret data is left to the site
 administrator. A good choice might be to read data from /dev/random, unpack it
@@ -821,6 +822,12 @@ names.
 Format: table_name:username_column:password_column
 
 Example: users:usrname:passwd
+
+=item B<TicketPasswordStyle>
+
+This directive is currently unimplemented.  Only cleartext passwords in the
+database are currently supported.  In future versions, you can set this to a
+different value to support crypt or md5 style passwords.
 
 =item B<TicketSecretTable>
 

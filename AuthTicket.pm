@@ -385,31 +385,20 @@ sub fetch_secret {
     my ($secret_table, $secret_field, $secret_version_field) =
         split(/:/, $this->{TicketSecretTable});
 
-    my $query;
-    if (defined $version) {
-        $query = qq{
-            SELECT  $secret_field, $secret_version_field
-            FROM    $secret_table
-            WHERE   $secret_version_field = ?
-        };
-    } else {
-        # hopefully this is not too db specific.  it works in Mysql and Pgsql
-        $query = qq{
-            SELECT   $secret_field, $secret_version_field
-            FROM     $secret_table
-            ORDER BY $secret_version_field DESC
-            LIMIT 1
-        };
+    unless (defined $version) {
+        $version = $this->_get_max_secret_version;
     }
+
+    my $query = qq{
+        SELECT  $secret_field, $secret_version_field
+        FROM    $secret_table
+        WHERE   $secret_version_field = ?
+    };
 
     my ($secret, $ret_version) = (undef, undef);
     eval {
         my $sth = $dbh->prepare($query);
-        if (defined $version) {
-            $sth->execute($version);
-        } else {
-            $sth->execute;
-        }
+        $sth->execute($version);
         $sth->bind_columns(\$secret, \$ret_version);
         $sth->fetch;
     };
@@ -687,6 +676,35 @@ sub _compare_password_md5 {
 
     my $test_pass = Digest::MD5->md5_hex($clearpass);
     return $test_pass eq $saved_pass;
+}
+
+sub _get_max_secret_version {
+    my ($this) = @_;
+
+    my ($secret_table, $secret_field, $secret_version_field) =
+        split(/:/, $this->{TicketSecretTable});
+    
+    my $dbh = $this->dbh;
+
+    my $query = qq{
+        SELECT MAX($secret_version_field)
+        FROM   $secret_table
+    };
+
+    my $version = undef;
+    eval {
+        my $sth = $dbh->prepare($query);
+        $sth->execute;
+        $sth->bind_columns(\$version);
+        $sth->fetch;
+        $sth->finish;
+    };
+    if ($@) {
+        $dbh->rollback;
+        die $@;
+    }
+
+    return $version;
 }
 
 1;

@@ -10,7 +10,9 @@ use vars qw($VERSION @ISA %DEFAULTS %CONFIG);
 use Apache::Constants qw(REDIRECT OK);
 use Apache::AuthCookie ();
 use DBI ();
-use Digest::MD5 ();
+use Digest::MD5 qw(md5_hex);
+
+use constant DEBUGGING => 0;
 
 #use Data::Dumper;
 
@@ -44,7 +46,6 @@ $VERSION = '0.20';
 # configured items get dumped in here
 %CONFIG = ();
 
-my $DEBUG = 0;
 
 sub configure {
     my ($class, $auth_name, $conf) = @_;
@@ -100,7 +101,7 @@ sub _get_config_item {
     my $value = $r->dir_config("${auth_name}$item") ||
            $CONFIG{$auth_name}->{$item} ||
            $DEFAULTS{$item};
-    warn "returning [$value] for $item" if $DEBUG;
+    warn "returning [$value] for $item" if DEBUGGING;
     return $value;
 }
 
@@ -125,7 +126,7 @@ sub login_screen ($$) {
 sub make_login_screen {
     my ($self, $r, $action, $destination) = @_;
 
-    if ($DEBUG) {
+    if (DEBUGGING) {
         # log what we think is wrong.
         my $reason = $r->prev->subprocess_env("AuthCookieReason");
         $r->log_error("REASON FOR AUTH NEEDED: $reason");
@@ -223,7 +224,7 @@ sub init {
 
 sub DESTROY {
     my ($this) = @_;
-    warn "<< DESTROY CALLED >>" if $DEBUG;
+    warn "<< DESTROY CALLED >>" if DEBUGGING;
     $this->dbh->disconnect if defined $this->dbh;
 }
 
@@ -232,7 +233,7 @@ sub dbh     { shift->{_DBH} }
 
 sub dbi_connect {
     my ($this) = @_;
-    $this->_log_entry if $DEBUG;
+    $this->_log_entry if DEBUGGING;
 
     my $r         = $this->request;
     my $auth_name = $r->auth_name;
@@ -252,7 +253,7 @@ sub dbi_connect {
 # return true if a username exists.
 sub check_user {
     my ($this, $user) = @_;
-    $this->_log_entry if $DEBUG;
+    $this->_log_entry if DEBUGGING;
 
     my $dbh = $this->dbh;
 
@@ -284,7 +285,7 @@ sub check_user {
 # return the password associated with a user
 sub get_password {
     my ($this, $user) = @_;
-    $this->_log_entry if $DEBUG;
+    $this->_log_entry if DEBUGGING;
 
     my $dbh = $this->dbh;
 
@@ -314,7 +315,7 @@ sub get_password {
 
 sub check_credentials {
     my ($this, $user, $password) = @_;
-    $this->_log_entry if $DEBUG;
+    $this->_log_entry if DEBUGGING;
 
     my ($table, $user_field, $pass_field) = 
         split(/:/, $this->{TicketUserTable});
@@ -353,7 +354,7 @@ sub check_credentials {
 #
 sub fetch_secret {
     my ($this, $version) = @_;
-    $this->_log_entry if $DEBUG;
+    $this->_log_entry if DEBUGGING;
 
     my $dbh = $this->dbh;
 
@@ -391,16 +392,16 @@ sub fetch_secret {
 #
 sub make_ticket {
     my ($this, $r, $user_name) = @_;
-    $this->_log_entry if $DEBUG;
+    $this->_log_entry if DEBUGGING;
 
     my $now      = time();
     my $expires  = $now + $this->{TicketExpires} * 60;
     my $ip       = $r->connection->remote_ip;
     my ($secret, $sec_version) = $this->fetch_secret();
 
-    my $hash = Digest::MD5->md5_hex($secret .
-                   Digest::MD5->md5_hex(join ':', $secret, $ip, $sec_version, 
-                                        $now, $expires, $user_name)
+    my $hash = md5_hex($secret .
+                   md5_hex(join ':', $secret, $ip, $sec_version, 
+                                      $now, $expires, $user_name)
                );
 
     my %key = (
@@ -419,10 +420,10 @@ sub make_ticket {
 # invalidate the ticket by expiring the cookie, and delete the hash locally
 sub delete_ticket {
     my ($this, $r) = @_;
-    $this->_log_entry if $DEBUG;
+    $this->_log_entry if DEBUGGING;
 
     my $key = $this->key();
-    warn "delete_ticket: key $key" if $DEBUG;
+    warn "delete_ticket: key $key" if DEBUGGING;
     my %ticket = $this->_unpack_ticket($key);
 
     $this->delete_hash($ticket{'hash'});
@@ -435,9 +436,9 @@ sub delete_ticket {
 #
 sub check_ticket_format {
     my ($this, %key) = @_;
-    $this->_log_entry if $DEBUG;
+    $this->_log_entry if DEBUGGING;
 
-    $this->request->log_error("key is ".join(' ', %key)) if $DEBUG;
+    $this->request->log_error("key is ".join(' ', %key)) if DEBUGGING;
     for my $param (qw(version time user expires hash)) {
         return 0 unless defined $key{$param};
     }
@@ -462,11 +463,11 @@ sub _pack_ticket {
 #
 sub verify_ticket {
     my ($this, $key) = @_;
-    $this->_log_entry if $DEBUG;
+    $this->_log_entry if DEBUGGING;
 
     my $r = $this->request;
 
-    warn "ticket is $key\n" if $DEBUG;
+    warn "ticket is $key\n" if DEBUGGING;
     my ($secret, $sec_version);
     my %ticket = $this->_unpack_ticket($key);
 
@@ -497,8 +498,8 @@ sub verify_ticket {
     # create a new hash and verify that it matches the supplied hash
     # (prevents tampering with the cookie)
     my $ip = $r->connection->remote_ip;
-    my $newhash = Digest::MD5->md5_hex($secret .
-                      Digest::MD5->md5_hex(join ':', $secret, $ip,
+    my $newhash = md5_hex($secret .
+                      md5_hex(join ':', $secret, $ip,
                           @ticket{qw(version time expires user)})
                   );
 
@@ -552,28 +553,9 @@ sub _ticket_idle_timeout {
     my $idle = $this->{TicketIdleTimeout} * 60;
     return 0 unless $idle;       # if not timeout set, its still valid.
 
-    my ($table, $tick_field, $ts_field) = split(':', $this->{TicketTable});
-
-    my $query = qq{
-        SELECT $ts_field
-        FROM   $table
-        WHERE  $tick_field = ?
-    };
-
-    my $dbh = $this->dbh;
-    my $db_time;
-    eval {
-        my $sth = $dbh->prepare($query);
-        $sth->execute($hash);
-        ($db_time) = $sth->fetchrow_array;
-    };
-    if ($@) {
-        $dbh->rollback;
-        die $@;
-    }
-
+    my $db_time = $this->{DBTicketTimeStamp};
     my $time = $this->request->request_time;
-    if ($DEBUG) {
+    if (DEBUGGING) {
         warn "Last activity: ", ($time - $db_time), " secs ago\n";
         warn "Fail if thats > ", ($idle), "\n";
     }
@@ -591,7 +573,7 @@ sub _ticket_idle_timeout {
 #
 sub save_hash {
     my ($this, $hash) = @_;
-    $this->_log_entry if $DEBUG;
+    $this->_log_entry if DEBUGGING;
 
     my ($table, $tick_field, $ts_field) = split(/:/, $this->{TicketTable});
     my $dbh = $this->dbh;
@@ -617,7 +599,7 @@ sub save_hash {
 #
 sub delete_hash {
     my ($this, $hash) = @_;
-    $this->_log_entry if $DEBUG;
+    $this->_log_entry if DEBUGGING;
 
     my ($table, $tick_field) = split(/:/, $this->{TicketTable});
     my $dbh = $this->dbh;
@@ -644,29 +626,30 @@ sub delete_hash {
 #
 sub is_hash_valid {
     my ($this, $hash) = @_;
-    $this->_log_entry if $DEBUG;
+    $this->_log_entry if DEBUGGING;
 
-    my ($table, $tick_field) = split(/:/, $this->{TicketTable});
+    my ($table, $tick_field, $ts_field) = split(/:/, $this->{TicketTable});
     my $dbh = $this->dbh;
 
     my $query = qq{
-        SELECT  $tick_field
+        SELECT  $tick_field, $ts_field
         FROM    $table
         WHERE   $tick_field = ?
     };
 
-    my $value = undef;
+    my ($db_hash, $ts) = (undef, undef);
     eval {
         my $sth = $dbh->prepare($query);
         $sth->execute($hash);
-        ($value) = $sth->fetchrow_array;
+        ($db_hash, $ts) = $sth->fetchrow_array;
+        $this->{DBTicketTimeStamp} = $ts;   # cache for later use.
     };
     if ($@) {
         $dbh->rollback;
         die $@;
     }
 
-    return (defined $value and $value eq $hash) ? 1 : 0;
+    return (defined $db_hash and $db_hash eq $hash) ? 1 : 0;
 }
 
 # PRIVATE METHODS ############################################################
@@ -681,7 +664,7 @@ sub _log_entry {
 # compare cleartext style passwords
 sub _compare_password_cleartext {
     my ($this, $clearpass, $saved_pass) = @_;
-    $this->_log_entry if $DEBUG;
+    $this->_log_entry if DEBUGGING;
 
     return $clearpass eq $saved_pass;
 }
@@ -689,7 +672,7 @@ sub _compare_password_cleartext {
 # compare crypt() style passwords
 sub _compare_password_crypt {
     my ($this, $clearpass, $saved_pass) = @_;
-    $this->_log_entry if $DEBUG;
+    $this->_log_entry if DEBUGGING;
 
     my $test_pass = crypt($clearpass, $saved_pass);
     return $test_pass eq $saved_pass;
@@ -698,9 +681,9 @@ sub _compare_password_crypt {
 # compare md5 style passwords
 sub _compare_password_md5 {
     my ($this, $clearpass, $saved_pass) = @_;
-    $this->_log_entry if $DEBUG;
+    $this->_log_entry if DEBUGGING;
 
-    my $test_pass = Digest::MD5->md5_hex($clearpass);
+    my $test_pass = md5_hex($clearpass);
     return $test_pass eq $saved_pass;
 }
 
@@ -980,7 +963,7 @@ in the database.
 
 This password style generates an MD5 hex hash of the supplied password before
 comparing it against the password stored in the database.  Passwords should be
-stored in the database by passing them through Digest::MD5->md5_hex().
+stored in the database by passing them through Digest::MD5::md5_hex().
 
 =item I<crypt>
 

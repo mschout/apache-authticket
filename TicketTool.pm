@@ -286,8 +286,7 @@ sub expire_ticket {
     $this->delete_hash($ticket{'hash'});
 
     # try to coax the browser to discard the cookie
-    $tcookie->value('');
-    $tcookie->expires('-5m');
+    $tcookie->expires('-5y');
     $tcookie->bake;
 }
 

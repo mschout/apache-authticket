@@ -9,14 +9,13 @@ use vars qw($VERSION %DEFAULTS %CONFIG);
 
 use Apache::Constants qw(OK FORBIDDEN REDIRECT SERVER_ERROR);
 use Apache::Util ();
-use Apache::File ();
 use Apache::URI ();
 use Apache::Cookie ();
 use Apache::Request ();
 use DBI ();
 use Digest::MD5 ();
 
-$VERSION = '0.01';
+$VERSION = '0.11';
 
 %DEFAULTS = (
     TicketDB              => 'dbi:Pg:dbname=template1',

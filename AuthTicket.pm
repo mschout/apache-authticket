@@ -222,12 +222,6 @@ sub init {
     } keys %DEFAULTS;
 }
 
-sub DESTROY {
-    my ($this) = @_;
-    warn "<< DESTROY CALLED >>" if DEBUGGING;
-    $this->dbh->disconnect if defined $this->dbh;
-}
-
 sub request { shift->{_REQUEST} }
 sub dbh     { shift->{_DBH} }
 
@@ -242,7 +236,7 @@ sub dbi_connect {
         $this->_get_config_item($r, $_)
     } qw/TicketDB TicketDBUser TicketDBPassword/;
 
-    my $dbh = DBI->connect($db, $user, $pass)
+    my $dbh = DBI->connect_cached($db, $user, $pass)
         or die "DBI Connect failure: ", DBI->errstr, "\n";
 
     return $dbh;

@@ -15,7 +15,7 @@ use Apache::Request ();
 use DBI ();
 use Digest::MD5 ();
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 %DEFAULTS = (
     TicketDB              => 'dbi:Pg:dbname=template1',
@@ -194,7 +194,6 @@ sub go_to_login_form {
 
     my $r = $this->request;
 
-    $r->log_reason($msg, $r->filename);
     my $uri = Apache::URI->parse($r, $this->{TicketLoginForm});
     $uri->query( Apache::Util::escape_uri("message=$msg") );
     $r->log_error("URI: ".$uri->unparse) if $DEBUG;
@@ -518,12 +517,10 @@ sub verify_ticket {
     my %cookies = $cookie->parse;
 
     unless (%cookies) {
-        # no cookies
-        return (0, '');
+        return (0, 'user has no cookies');
     }
     unless ($cookies{$name}) {
-        # no ticket
-        return (0, '');
+        return (0, 'user has no ticket');
     }
 
     my %ticket = $cookies{$name}->value;
@@ -533,7 +530,7 @@ sub verify_ticket {
         return (0, 'malformed ticket');
     }
     unless ($this->is_hash_valid($ticket{'hash'})) {
-        return (0, '');
+        return (0, 'invalid ticket');
     }
     unless ($r->request_time < $ticket{'expires'}) {
         return (0, 'ticket has expired');

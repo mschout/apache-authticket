@@ -1,3 +1,11 @@
+2000-04-25  Michael J Schout  <mschout@galaxy.gkg-com.com>
+
+	* TicketAccess.pm:
+
+		Split up the secret fetch into 2 queries to avoid the "LIMIT" clause.
+		Sybase apparently does not support LIMIT, MySQL doesnt support subqueries,
+		so this is the best we can do.
+
 2000-04-24  Michael J Schout  <mschout@galaxy.gkg-com.com>
 
 	* TicketAccess.pm:

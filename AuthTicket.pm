@@ -42,7 +42,7 @@ $VERSION = '0.20';
 );
 
 # configured items get dumped in here
-my %CONFIG = ();
+%CONFIG = ();
 
 my $DEBUG = 0;
 

@@ -29,10 +29,8 @@ $VERSION = '0.12';
 
 %DEFAULTS = (
     TicketExpires         => 15,
-    TicketTimeLimit       => 30,
-    TicketRefresh         => 'On',
+    TicketIdleTimeout     => 0,
     TicketLogoutURI       => '/',
-    TicketRefreshInterval => 30,
     TicketDB              => 'dbi:Pg:dbname=template1',
     TicketDBUser          => 'test',
     TicketDBPassword      => 'test',
@@ -57,7 +55,6 @@ sub configure {
     #warn 'After config. %CONFIGURE looks like this\n',
     #     Dumper(\%CONFIG);
 }
-
 # check credentials and return a session key if valid
 # return undef if invalid
 sub authen_cred {
@@ -121,6 +118,14 @@ sub login_screen ($$) {
 sub make_login_screen {
     my ($self, $r, $action, $destination) = @_;
 
+    if ($DEBUG) {
+        # log what we think is wrong.
+        my $reason = $r->prev->subprocess_env("AuthCookieReason");
+        $r->log_error("REASON FOR AUTH NEEDED: $reason");
+        $reason = $r->prev->subprocess_env("AuthTicketReason");
+        $r->log_error("AUTHTICKET REASON: $reason");
+    }
+
     $r->content_type('text/html');
 
     $r->send_http_header;
@@ -163,38 +168,6 @@ sub make_login_screen {
 
     return OK;
 }
-
-#sub login ($$) {
-#    my ($class, $r) = @_;
-#
-#    if (lc $r->dir_config('Filter') eq 'on') {
-#        $r->filter_input(handle=>1);
-#    }
-#
-#    my $this = $class->new($r);
-#
-#    my $apr = Apache::Request->new($r);
-#
-#    my ($user, $pass, $dest) = 
-#        map { $apr->param($_) } qw/username password request_uri/;
-#
-#    my $action = $this->{TicketLoginScript};
-#    my $request_uri = $apr->param('request_uri') || $r->prev->uri;
-#
-#    my ($result, $msg) = $this->check_credentials($user, $pass);
-#    if ($result) {
-#        my $ticket = $this->make_ticket($r, $user);
-#        unless ($ticket) {
-#            $r->log_error("Couldn't make ticket -- missing secret?");
-#            return SERVER_ERROR;
-#        }
-#        $r->err_headers_out->add('Location' => $dest);
-#        return REDIRECT;
-#    } else {
-#        $this->make_login_screen($r, $action, $request_uri, $msg);
-#        return OK;
-#    }
-#}
 
 sub logout ($$) {
     my ($class, $r) = @_;
@@ -239,6 +212,12 @@ sub init {
     map {
         $this->{$_} = $this->_get_config_item($r, $_);
     } keys %DEFAULTS;
+}
+
+sub DESTROY {
+    my ($this) = @_;
+    warn "<< DESTROY CALLED >>" if $DEBUG;
+    $this->dbh->disconnect if defined $this->dbh;
 }
 
 sub request { shift->{_REQUEST} }
@@ -485,19 +464,26 @@ sub verify_ticket {
     my %ticket = $this->_unpack_ticket($key);
 
     unless ($this->check_ticket_format(%ticket)) {
-        # malformed ticket
+        $r->subprocess_env(AuthTicketReason => 'malformed_ticket');
         return 0;
     }
     unless ($this->is_hash_valid($ticket{'hash'})) {
-        # invalid ticket
+        $r->subprocess_env(AuthTicketReason => 'invalid_hash');
         return 0;
     }
     unless ($r->request_time < $ticket{'expires'}) {
-        # ticket has expired
+        $r->subprocess_env(AuthTicketReason => 'expired_ticket');
         return 0;
     }
     unless (($secret, $sec_version) = $this->fetch_secret($ticket{'version'})) {
         # cat get server secret
+        $r->subprocess_env(AuthTicketReason => 'missing_secret');
+        return 0;
+    }
+    if ($this->_ticket_idle_timeout($ticket{'hash'})) {
+        # user has exceeded idle-timeout
+        $r->subprocess_env(AuthTicketReason => 'idle_timeout');
+        $this->delete_hash($ticket{'hash'});
         return 0;
     }
 
@@ -511,15 +497,87 @@ sub verify_ticket {
 
     unless ($newhash eq $ticket{'hash'}) {
         # ticket hash does not match (ticket tampered with?)
+        $r->subprocess_env(AuthTicketReason => 'tampered_hash');
         return 0;
     }
 
     # otherwise, everything is ok
+    $this->_update_ticket_timestamp($ticket{'hash'});
     $r->connection->user($ticket{'user'});
     return 1;
 }
 
 ########## SERVER SIDE HASH MANAGEMENT METHODS
+
+sub _update_ticket_timestamp {
+    my ($this, $hash) = @_;
+
+    my $time = $this->request->request_time;
+    my $dbh = $this->dbh;
+
+    my ($table, $tick_field, $ts_field) = split(':', $this->{TicketTable});
+
+    my $query = qq{
+        UPDATE $table
+        SET    $ts_field = ?
+        WHERE  $tick_field = ?
+    };
+
+    eval {
+        my $sth = $dbh->prepare($query);
+        $sth->execute($time, $hash);
+        $dbh->commit unless $dbh->{AutoCommit};
+    };
+    if ($@) {
+        $dbh->rollback;
+        die $@;
+    }
+
+}
+
+# boolean _ticket_idle_timeout(String hash)
+#
+# return true if the ticket table timestamp is older than the IdleTimeout
+# value.
+sub _ticket_idle_timeout {
+    my ($this, $hash) = @_;
+
+    my $idle = $this->{TicketIdleTimeout} * 60;
+    return 0 unless $idle;       # if not timeout set, its still valid.
+
+    my ($table, $tick_field, $ts_field) = split(':', $this->{TicketTable});
+
+    my $query = qq{
+        SELECT $ts_field
+        FROM   $table
+        WHERE  $tick_field = ?
+    };
+
+    my $dbh = $this->dbh;
+    my $db_time;
+    eval {
+        my $sth = $dbh->prepare($query);
+        $sth->execute($hash);
+        ($db_time) = $sth->fetchrow_array;
+    };
+    if ($@) {
+        $dbh->rollback;
+        die $@;
+    }
+
+    my $time = $this->request->request_time;
+    if ($DEBUG) {
+        warn "Last activity: ", ($time - $db_time), " secs ago\n";
+        warn "Fail if thats > ", ($idle), "\n";
+    }
+
+    if ( ($time - $db_time)  > $idle ) {
+        # its timed out
+        return 1;
+    } else {
+        return 0;
+    }
+}
 
 #
 # save the ticket hash in the db
@@ -528,15 +586,18 @@ sub save_hash {
     my ($this, $hash) = @_;
     $this->_log_entry if $DEBUG;
 
-    my ($table, $field) = split(/:/, $this->{TicketTable});
+    my ($table, $tick_field, $ts_field) = split(/:/, $this->{TicketTable});
     my $dbh = $this->dbh;
 
-    my $query = qq{ INSERT INTO $table ($field) VALUES (?) };
+    my $query = qq{
+        INSERT INTO $table ($tick_field, $ts_field)
+        VALUES (?, ?)
+    };
 
     eval {
         my $sth = $dbh->prepare($query);
-        $sth->execute($hash);
-        $dbh->commit unless $dbh->{AutoCommit} || 0;
+        $sth->execute($hash, $this->request->request_time);
+        $dbh->commit unless $dbh->{AutoCommit};
     };
     if ($@) {
         $dbh->rollback;
@@ -551,13 +612,13 @@ sub delete_hash {
     my ($this, $hash) = @_;
     $this->_log_entry if $DEBUG;
 
-    my ($table, $field) = split(/:/, $this->{TicketTable});
+    my ($table, $tick_field) = split(/:/, $this->{TicketTable});
     my $dbh = $this->dbh;
 
     my $query = qq{
         DELETE
         FROM    $table
-        WHERE   $field = ?
+        WHERE   $tick_field = ?
     };
 
     eval {
@@ -578,13 +639,13 @@ sub is_hash_valid {
     my ($this, $hash) = @_;
     $this->_log_entry if $DEBUG;
 
-    my ($table, $field) = split(/:/, $this->{TicketTable});
+    my ($table, $tick_field) = split(/:/, $this->{TicketTable});
     my $dbh = $this->dbh;
 
     my $query = qq{
-        SELECT  $field
+        SELECT  $tick_field
         FROM    $table
-        WHERE   $field = ?
+        WHERE   $tick_field = ?
     };
 
     my $value = undef;
@@ -676,55 +737,68 @@ Apache::AuthTicket - Cookie based access module.
 =head1 SYNOPSIS
 
  # in httpd.conf
- <Location /protected>
-   PerlAccessHandler Apache::AuthTicket->authenticate
-   PerlSetVar        TicketRealm protected
+ PerlModule Apache::AuthTicket
+ PerlSetVar FooTicketDB DBI:mysql:database=mschout;host=testbed
+ PerlSetVar FooTicketDBUser test
+ PerlSetVar FooTicketDBPassword secret
+ PerlSetVar FooTicketTable tickets:ticket_hash:ts
+ PerlSetVar FooTicketUserTable myusers:usename:passwd
+ PerlSetVar FooTicketPasswordStyle cleartext
+ PerlSetVar FooTicketSecretTable ticket_secrets:sec_data:sec_version
+ PerlSetVar FooTicketExpires 15
+ PerlSetVar FooTicketLogoutURI /foo/index.html
+ PerlSetVar FooTicketLoginHandler /foologin
+ PerlSetVar FooTicketIdleTimeout 1
+ PerlSetVar FooPath /
+ PerlSetVar FooDomain .foo.com
+ PerlSetVar FooSecure 1
+ PerlSetVar FooLoginScript /foologinform
+ 
+ <Location /foo>
+     AuthType Apache::AuthTicket
+     AuthName Foo
+     PerlAuthenHandler Apache::AuthTicket->authenticate
+     PerlAuthzHandler Apache::AuthTicket->authorize
+     require valid-user
  </Location>
-
- <Location /loginform>
-   SetHandler  perl-script
-   PerlHandler Apache::AuthTicket->login_form
-   PerlSetVar  TicketRealm protected
+ 
+ <Location /foologinform>
+     AuthType Apache::AuthTicket
+     AuthName Foo
+     SetHandler perl-script
+     Perlhandler Apache::AuthTicket->login_screen
  </Location>
-
- <Location /login>
-   SetHandler  perl-script
-   PerlHandler Apache::AuthTicket->login
-   PerlSetVar  TicketRealm protected
+ 
+ <Location /foologin>
+     AuthType Apache::AuthTicket
+     AuthName Foo
+     SetHandler perl-script
+     PerlHandler Apache::AuthTicket->login
  </Location>
-
- <Location /protected/logout>
-   SetHandler  perl-script
-   PerlHandler Apache::AuthTicket->logout
-   PerlSetVar  TicketRealm protected
+ 
+ <Location /foo/logout>
+     AuthType Apache::AuthTicket
+     AuthName Foo
+     SetHandler perl-script
+     PerlHandler Apache::AuthTicket->logout
  </Location>
-
- # in startup.pl
- Apache::AuthTicket->configure('protected', {
-     TicketUserTable       => 'users:usenaem:passwd',
-     TicketTable           => 'tickets:ticket_hash',
-     TicketSecretTable     => 'ticketsecrets:sec_data:sec_version',
-     TicketExpires         => 15
- });
 
 =head1 DESCRIPTION
 
 This module provides ticket based access control.  The theory behind this is
-similar to the system described in the eagle book. 
+similar to the system described in the eagle book.
 
 This module works using HTTP cookies to check if a user is authorized to view a
-page.  If a cookie named I<Ticket> exists, then the ticket is verified to
-ensure that the ticket is valid.  If the ticket is found to be invalid, then
-the user is redirected to the URL specified by I<TicketLoginForm>, and access
-to the requested page is denied.
+page.  I<Apache::AuthCookie> is used as the underlying mechanism for managing
+cookies.
 
-This module was desigend to be as extensible as possible.  Its quite likely
+This module was designed to be as extensible as possible.  Its quite likely
 that you will want to create your own subclass of I<Apache::AuthTicket> in
 order to customize various aspects of this module (show your own versions of
 the forms, override database methods etc). 
 
 This system uses cookies to authenticate users.  When a user is authenticated
-throught this system, they are issued a cookie consisting of the time, the
+through this system, they are issued a cookie consisting of the time, the
 username of the user, the expriation time of the cookie, a "secret" version
 (described later), and a cryptographic signature.  The cryptographic signature
 is generated using the MD5 algorithm on the cookie data and a "secret" key that
@@ -735,7 +809,7 @@ administrator might periodically insert a new secret key into the databse
 periodically, and flush secrets that are more than 2 days old.  Since the
 ticket issued to the user contains the secret version, the authentication
 process will still allow tickets to be authorized as long as the corresponding
-secrets exist in the tickets table. 
+secrets exist in the ticket secrets table. 
 
 The actual contents and length of secret data is left to the site
 administrator. A good choice might be to read data from /dev/random, unpack it
@@ -743,14 +817,14 @@ into a hex string and save that.
 
 This system should be reasonably secure becuase the IP address of the end user
 is incorporated into the cryptographic signature. If the ticket were
-intercepted, then an aattacker would have to steal the user's IP address in
+intercepted, then an attacker would have to steal the user's IP address in
 order to be able to use the ticket.  Plus, since the tickets can expire
 automatically, we can be sure that the ticket is not valid for a long period of
-time.  Finally, by setting I<TicketSecure> to a true value, the ticket is not
-passed over unencrypted connections.  In order to attack this system, an
-attacker would have to exploit both the MD5 algoright as well as SSL. Chances
-are, by the time the user could break both of these, the ticket would no longer
-be valid.
+time.  Finally, by using the I<Secure> mode of I<Apache::AuthCookie>, the
+ticket is not passed over unencrypted connections.  In order to attack this
+system, an attacker would have to exploit both the MD5 algorightm as well as
+SSL. Chances are, by the time the user could break both of these, the ticket
+would no longer be valid.
 
 =head1 CONFIGURATION
 
@@ -763,67 +837,84 @@ There are two things you must do in order to configure this module:
 
 There are two ways that this module could be configured.  Either by using a
 function call in startup.pl, or by configuring each handler explicitly in
-httpd.conf.  By using the startup.pl method, the amout of duplicated
-information in httpd.conf is greatly reduced.  As such, I do not discuss this
-method here.  I recommend using the startup.pl method, and this is what is
-discussed here.
+httpd.conf.  If you decide to mix and match using calls to Apache::AuthTicket->configure() with directives in httpd.conf, then remember that the following precedence applies:
+
+ o If a directive is specified in httpd.conf, it will be used.
+ o else if a directive is specified by configure(), then the 
+   configure() value will be used.
+ o else a default value will be used.
+
+Default values are subject to change in later versions, so you are better of
+explicitly configuring all values and not relying on any defaults.
 
 There are four blocks that need to be entered into httpd.conf.  The first of
 these is the block specifying your access restrictions.  This block should look
 somrthing like this:
 
- <Location /protected>
-   PerlAccessHandler Apache::AuthTicket->authenticate
-   PerlSetVar        TicketRealm protected
+ <Location /foo>
+     AuthType Apache::AuthTicket
+     AuthName Foo
+     PerlAuthenHandler Apache::AuthTicket->authenticate
+     PerlAuthzHandler Apache::AuthTicket->authorize
+     require valid-user
  </Location>
-
-I<TicketRealm> is just a label that is used to tell Apache::AuthTicket which
-configuration to use for this block.
-
-This specifys that any URL in /protected must pass authentication through
-I<Apache::AuthTicket>.  Directory blocks should also work fine here (although
-I have not tested this).
 
 The remaining blocks control how to display the login form, and the login and
 logout urls.  These blocks should look similar to this:
 
- <Location /loginform>
-   SetHandler  perl-script
-   PerlHandler Apache::AuthTicket->login_form
-   PerlSetVar  TicketRealm protected
+ <Location /foologinform>
+     AuthType Apache::AuthTicket
+     AuthName Foo
+     SetHandler perl-script
+     Perlhandler Apache::AuthTicket->login_screen
  </Location>
-
- <Location /login>
-   SetHandler  perl-script
-   PerlHandler Apache::AuthTicket->login
-   PerlSetVar  TicketRealm protected
+ 
+ <Location /foologin>
+     AuthType    Apache::AuthTicket
+     AuthName    Foo
+     SetHandler  perl-script
+     PerlHandler Apache::AuthTicket->login
  </Location>
-
- <Location /protected/logout>
-   SetHandler  perl-script
-   PerlHandler Apache::AuthTicket->logout
-   PerlSetVar  TicketRealm protected
- </Location>
-
-It should be noted that Apache::AuthTicket is Apache::Filter aware.  So if
-you implement your own subclass of Apache::AuthTicket that emits SSI tags,
-you could do something like this:
-
- <Location /loginform>
-   SetHandler  perl-script
-   PerlHandler Apache::AuthTicket->login_form Apache::SSI
-   PerlSetVar  TicketRealm protected
-   PerlSetVar  Filter      On
+ 
+ <Location /foo/logout>
+     AuthType Apache::AuthTicket
+     AuthName Foo
+     SetHandler perl-script
+     PerlHandler Apache::AuthTicket->logout
  </Location>
 
 =head2 Apache Configuration - startup.pl
 
-Any AuthTicket configuration items can be set in startup.pl.  You can
-configure a TicketRealm using:
+Any I<Apache::AuthTicket> configuration items can be set in startup.pl.  You
+can configure an AuthName like this:
 
- Apache::AuthTicket->configure(String realm, *Hash config)
+ Apache::AuthTicket->configure(String auth_name, *Hash config)
 
-config is a reference to a hash specifying configuation values.
+Note that when configuring this way you dont prefix the configuration items
+with the AuthName value like you do when using PerlSetVar directives.
+
+Note: You must still include I<Apache::AuthCookie> configuration directives in 
+httpd.conf when configuring the server this way.  These items include:
+
+    PerlSetVar FooPath /
+    PerlSetVar FooDomain .foo.com
+    PerlSetVar FooSecure 1
+    PerlSetVar FooLoginScript /foologinform
+
+example:
+ Apache::AuthTicket->configure('Foo', {
+     TicketDB            => 'DBI:mysql:database=test;host=foo',
+     TicketDBUser        => 'mschout',
+     TicketDBPassword    => 'secret',
+     TicketTable         => 'tickets:ticket_hash:ts',
+     TicketUserTablei    => 'myusers:usename:passwd',
+     TicketPasswordStyle => 'cleartext',
+     TicketSecretTable   => 'ticket_secrets:sec_data:sec_version',
+     TicketExpires       => '15',
+     TicketLogoutURI     => '/foo/index.html',
+     TicketLoginHandler  => '/foologin',
+     TicketIdleTimeout   => 5
+ });
 
 Valid configuration items are:
 
@@ -851,9 +942,9 @@ This directive specifys the password to use when connecting to the databse.
 This directive specifys the ticket hash table as well as the column name for
 the hash.
 
-Format: table_name:column_name
+Format: table_name:ticket_column_name:timestamp_column
 
-Example: tickets:ticket_hash
+Example: tickets:ticket_hash:ts
 
 =item B<TicketUserTable>
 
@@ -906,6 +997,14 @@ This directive specifys the number of minutes that tickets should remain
 valid for.  If a user exceeds this limit, they will be forced to log in
 again.
 
+=item B<TicketIdleTimeout>
+
+This directive specifys the number of minutes of inactivity before a ticket
+is considered invalid.  Setting this value to 5 for example would force a
+re-login if no requests are recieved from the user in a 5 minute period.
+
+The default for this value is 0, which disables this feature.  If this number
+is larger than I<TicketExpires>, then this setting will have no effect.
 
 =item B<TicketLogoutURI>
 
@@ -939,16 +1038,14 @@ confgured by the I<TicketUserTable> directive.
 
 This table stores the ticket hash for each ticket.  This information must be
 stored locally so that users can be forcefully logged out without worrying if
-the HTTP cookie doesn't get deleted.  This table only needs a character field
-that is 32 characters long to store the hash.  Its likely that you will also
-want to save a timestamp with each hash so that you can delete old tuples from
-this table periodically.
+the HTTP cookie doesn't get deleted.
 
  example:
 
  CREATE TABLE tickets (
-    ticket_hash CHAR(32) NOT NULL PRIMARY KEY,
-    ts          TIMESTAMP NOT NULL DEFAULT NOW()
+    ticket_hash CHAR(32) NOT NULL,
+    ts          INT NOT NULL,
+    PRIMARY KEY (ticket_hash)
  );
 
 =item B<secrets table>
@@ -960,7 +1057,6 @@ This table is configured by the I<TicketSecretTable> directive.
 
  CREATE TABLE ticketsecrets (
      sec_version  SERIAL,
-     sec_ts       TIMESTAMP NOT NULL DEFAULT NOW(),
      sec_data     TEXT NOT NULL
  );
 
@@ -978,21 +1074,71 @@ overload.
 
 =over 3
 
-=item void make_login_screen($r, String action, String request_uri, String message)
+=item void make_login_screen($r, String action, String destination)
 
 This method creats the "login" screen that is shown to the user.  You can
 overload this method to create your own login screen.  The log in screen only
-needs to contain a hidden field called "request_uri" with the contents of
-I<request_uri> in it, a text field named "username" and a password field named
-"password".  You are responsible for sending the http header as well as the
-content.  
+needs to contain a hidden field called "destination" with the contents of
+I<destination> in it, a text field named I<credential_0> and a password field
+named I<credential_1>.  You are responsible for sending the http header as well
+as the content.  See I<Apache::AuthCookie> for the description of what each of
+these fields are for.
 
 I<action> contains the action URL for the form.  You must set the action of
 your form to this value for it to function correctly.
 
-I<message> will contain an error message if the user was unable to
-log in or if the user was automatically logged out.  You can ignore I<message>
-if you dont wish to show this information to your users.
+I<Apache::AuthTicket> also provides a mechanism to determine why the login for
+is being displayed.  This can be used in conjunction with
+I<Apache::AuthCookie>'s "AuthCookieReason" setting to determine why the user is
+being asked to log in.  I<Apache::AuthCookie> sets
+$r->prev->subprocess_env("AuthCookieReason") to either "no_cookie" or
+"bad_cookie" when this page is loaded.  If the value is "no_cookie" then the
+user is being asked to log in for the first time, or they are logging in after
+they previously logged out.  If this value is "bad_cookie" then
+I<Apache::AuthTicket> is asking them to re-login for some reason.  To determine
+what this reason is, you must examine
+$r->prev->subprocess_env("AuthTicketReason").  I<AuthTicketReason> can take the
+following values:
+
+=over 3
+
+=item malformed_ticket
+
+This value means that the ticket is malformed.  In other words, the ticket does
+not contain all of the required information that should be present.
+
+=item invalid_hash
+
+This value means that the hash contained in the ticket does not match any
+values in the tickets database table.  This might happen if you are
+periodically clearing out old tickets from the database and the user presents a
+ticket that has been deleted.
+
+=item expired_ticket
+
+This value means that the ticket has expired and the user must re-login to be
+issued a new ticket.
+
+=item missing_secret
+
+This value means that the server secret could not be loaded.
+
+=item idle_timeout
+
+This value means that the user has exceeded the I<TicketIdleTimeout> minutes of
+inactivity, and the user must re-login.
+
+=item tampered_hash
+
+This value indicates that the ticket data does not match its cryptographic
+signature, and the ticket has most likely been tampered with.  The user is
+forced to re-login at this point.
+
+=back
+
+You can use these values in your I<make_login_screen()> method to display a
+message stating why the user must login (e.g.: "you have exceeded 5 minutes of
+inactivity and you must re-login").
 
 =item DBI::db dbi_connect()
 
@@ -1009,13 +1155,26 @@ TicketDBUser, and TicketDBPassword in httpd.conf.
 
 =back
 
+=head1 BUGS
+
+None known, but that doesn't mean there aren't any.  If you find a bug in this
+software, please let me know.
+
 =head1 CREDITS
 
 The idea for this module came from the Ticket Access system in the eagle book,
 along with several ideas discussed on the mod_perl mailing list.
 
+Thanks to Ken Williams for his wonderful I<Apache::AuthCookie> module, and for
+putting in the necessary changes to I<Apache::AuthCookie> to make this module
+work!
+
 =head1 AUTHOR
 
 Michael Schout <mschout@gkg.net>
+
+=head1 SEE ALSO
+
+L<perl>, L<mod_perl>, L<Apache>, L<Apache::AuthCookie>
 
 =cut

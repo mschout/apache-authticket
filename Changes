@@ -1,14 +1,23 @@
-Release 0.11
-   o Renamed module to Apache::AuthTicket after discovering that
-	   Apache::TicketAccess is distributed with the mod_perl book examples (but
-		 not on CPAN).  Doug MacEachern requested that I rename the module.
+Release 0.20
+   o Renamed module from Apache::TicketAccess to Apache::AuthTicket after
+     discovering that Apache::TicketAccess is distributed with the mod_perl
+     book examples.
+   o Adapted module to Apache::AuthCookie v2.011.  This module now
+     subclasses Apache::AuthCookie and relies on AuthCookie for all of the 
+     cookie login logic.  This was basically a complete rewrite.
    o Split up query to fetch the server secret so that the LIMIT clause is
-	   not needed (for Sybase ASE backends, thanks to Eivind Trondsen)
-	 o Changed cookie name to REALM_Ticket - allows users to be logged into
-  	 multiple realms simultaneously.
-   o Made DBI commit() only be called if AutoCommit is off. (silences a warn())
+     not needed (for Sybase ASE backends, thanks to Eivind Trondsen)
+   o Made DBI commit() only be called if AutoCommit is off. 
+     (silences a warn() for MySQL)
    o Added support for md5 style passwords.
-	 o Added support for crypt() style passwords.
+   o Added support for crypt() style passwords.
+   o Added way to retrieve reason for login using
+     $r->subprocess_env("AuthTicketReason").
+   o Added support for Idle Timeout logouts via TicketIdleTimeout
+     configuration.
+   o Added "sample" directory with sql examples for setting up pgsql and mysql
+     backends, as well as httpd.conf samples.
+   o Removed libapreq dependency (AuthCookie does this stuff now)
 
 Relaese 0.10
    o Initial public release: Apache::TicketAccess 0.10

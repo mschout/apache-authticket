@@ -6,17 +6,12 @@ mod_perl eagle book.
 You need perl5.004 or better to install this package.  In addition, you should
 also have the following packages installed:
 
+   Apache::AuthCookie 2.011 or later.
    mod_perl 1.22 or later
-   libapreq 0.31 or later  (for Apache::Request and Apache::Cookie)
    DBI
    Digest::MD5
 
    All of these modules are available from your favorite CPAN mirror.
-
-If you plan to use this module under Apache::Filter, you need Apache::Filter
-version 1.007 or later.  Earlier versions of Apache::Filter will not work
-correctly with this module.   If you are not going to use this module with
-Apache::Filter, you do not need to have Apache::Filter installed.
 
 Installation of htis module is as usual:
 

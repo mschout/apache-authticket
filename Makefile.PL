@@ -7,7 +7,9 @@ sub chk_version {
     my ($pkg, $wanted) = @_;
 
     $! = 1;
-    print "Checking for $pkg...";
+    print "Checking for $pkg";
+		print " >= $wanted" if $wanted;
+		print "...";
 
     eval { 
         my $p; 
@@ -24,12 +26,11 @@ sub chk_version {
     $vnum >= $wanted;
 }
 
-#--- Check for libapreq
-my $libapreq_warning = "\n"
-    ."You need libapreq version 0.31 or later to install this module\n"
-    ."Look on CPAN for CPAN/modules/by-module/Apache/libapreq-0.31.tar.gz\n\n";
-chk_version( 'Apache::Request' => 0.31 ) or die $libapreq_warning;
-chk_version( 'Apache::Cookie' => 0.01 ) or die $libapreq_warning;
+#--- Check dependencies
+chk_version( 'Apache::AuthCookie' => 2.011 ) or 
+	die "\n"
+	."You need Apache::AuthCookie version 2.011 or later "
+	."to install this module\n\n";
 
 chk_version( 'DBI' => 0 ) or 
     die "\n"

@@ -1,0 +1,11 @@
+Release 0.11
+   o Split up query to fetch the server secret so that the LIMIT clause is
+	   not needed (for Sybase ASE backends, thanks to Eivind Trondsen)
+	 o Changed cookie name to REALM_Ticket - allows users to be logged into
+  	 multiple realms simultaneously.
+   o Made DBI commit() only be called if AutoCommit is off. (silences a warn())
+   o Added support for md5 style passwords.
+	 o Added support for crypt() style passwords.
+
+Relaese 0.10
+   o Initial public release.

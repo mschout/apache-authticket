@@ -1,3 +1,6 @@
+Release CURRENT
+   o update to use new Apache::Filter API (you need at least 1.012 now)
+
 Release 0.31
    o Removed an email address from Changes file via owners request.
 

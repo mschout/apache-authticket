@@ -181,7 +181,7 @@ sub logout ($$) {
     my ($class, $r) = @_;
 
     if (lc $r->dir_config('Filter') eq 'on') {
-        $r->filter_input(handle=>1);
+        $r->filter_register;
     }
 
     my $this = $class->new($r);

@@ -1,0 +1,5 @@
+2000-04-19 Michael Schout <mschout@gkg.net>
+    Implemented TicketPasswordStyle directives to support:
+		    - md5
+				- cleartext
+				- crypt

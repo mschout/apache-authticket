@@ -185,11 +185,13 @@ sub logout ($$) {
 
 sub get_config {
     my ($this, $realm) = @_;
+    $this->_log_entry if $DEBUG;
     return $CONFIG{$realm};
 }
 
 sub go_to_login_form {
     my ($this, $msg) = @_;
+    $this->_log_entry if $DEBUG;
 
     my $r = $this->request;
 
@@ -205,6 +207,7 @@ sub go_to_login_form {
 
 sub dbi_connect {
     my ($this) = @_;
+    $this->_log_entry if $DEBUG;
 
     my $dbh = DBI->connect($this->{TicketDB},
                            $this->{TicketDBUser},
@@ -218,6 +221,7 @@ sub dbi_connect {
 # return true if a username exists.
 sub check_user {
     my ($this, $user) = @_;
+    $this->_log_entry if $DEBUG;
 
     my $dbh = $this->dbh;
 
@@ -249,6 +253,7 @@ sub check_user {
 # return the password associated with a user
 sub get_password {
     my ($this, $user) = @_;
+    $this->_log_entry if $DEBUG;
 
     my $dbh = $this->dbh;
 
@@ -282,6 +287,7 @@ sub get_password {
 # will automatically call this->dbi_connect on the first call
 sub dbh {
     my ($this) = @_;
+    $this->_log_entry if $DEBUG;
     $this->{_DBH} = $this->dbi_connect() if not defined $this->{_DBH};
     $this->{_DBH};
 }
@@ -289,6 +295,7 @@ sub dbh {
 # overload this to make your own login sscren
 sub make_login_screen {
     my ($this, $r, $action, $request_uri, $msg) = @_;
+    $this->_log_entry if $DEBUG;
 
     $r->content_type('text/html');
 
@@ -332,7 +339,7 @@ sub make_login_screen {
 
 sub check_credentials {
     my ($this, $user, $password) = @_;
-    $this->{_r}->log_error("in TicketAccess::check_credentials()") if $DEBUG;
+    $this->_log_entry if $DEBUG;
 
     my ($table, $user_field, $pass_field) = 
         split(/:/, $this->{TicketUserTable});
@@ -346,7 +353,20 @@ sub check_credentials {
     # we might add an option for crypt or MD5 style password someday
     my $saved_passwd = $this->get_password($user);
 
-    return (undef, "password mismatch") unless $saved_passwd eq $password;
+    my $result = 0;
+
+    my $style = $this->{TicketPasswordStyle};
+    if ($style eq 'cleartext') {
+        $result = $this->_compare_password_cleartext($password, $saved_passwd);
+    } elsif ($style eq 'crypt') {
+        $result = $this->_compare_password_crypt($password, $saved_passwd);
+    } elsif ($style eq 'md5') {
+        $result = $this->_compare_password_md5($password, $saved_passwd);
+    } else {
+        die "unknown TicketPasswordStyle: $style\n";
+    }
+
+    return (undef, "password mismatch") unless $result;
 
     # its valid.
     return (1, '');
@@ -358,6 +378,7 @@ sub check_credentials {
 #
 sub fetch_secret {
     my ($this, $version) = @_;
+    $this->_log_entry if $DEBUG;
 
     my $dbh = $this->dbh;
 
@@ -406,6 +427,7 @@ sub fetch_secret {
 #
 sub make_ticket {
     my ($this, $r, $user_name) = @_;
+    $this->_log_entry if $DEBUG;
 
     my $now      = time();
     my $expires  = $now + $this->{TicketExpires} * 60;
@@ -443,6 +465,7 @@ sub make_ticket {
 # invalidate the ticket by expiring the cookie, and delete the hash locally
 sub expire_ticket {
     my ($this, $r) = @_;
+    $this->_log_entry if $DEBUG;
 
     my $cookie = Apache::Cookie->new($r);
     my %cookies = $cookie->fetch;
@@ -461,6 +484,7 @@ sub expire_ticket {
 # Apache::Cookie get_ticket()
 sub get_ticket {
     my ($this, $r) = @_;
+    $this->_log_entry if $DEBUG;
 
     my $cookie = Apache::Cookie->new($r);
     my %cookies = $cookie->fetch;
@@ -474,6 +498,7 @@ sub get_ticket {
 #
 sub check_ticket_format {
     my ($this, %key) = @_;
+    $this->_log_entry if $DEBUG;
 
     $this->{_r}->log_error("key is ".join(' ', %key)) if $DEBUG;
     for my $param (qw(version time user expires hash)) {
@@ -492,7 +517,7 @@ sub check_ticket_format {
 #
 sub verify_ticket {
     my ($this, $r) = @_;
-    $r->log_error('in TicketAccess::verify_ticket()') if $DEBUG;
+    $this->_log_entry if $DEBUG;
 
     my $cookie = Apache::Cookie->new($r);
     my %cookies = $cookie->parse;
@@ -546,6 +571,7 @@ sub verify_ticket {
 #
 sub save_hash {
     my ($this, $hash) = @_;
+    $this->_log_entry if $DEBUG;
 
     my ($table, $field) = split(/:/, $this->{TicketTable});
     my $dbh = $this->dbh;
@@ -568,6 +594,7 @@ sub save_hash {
 #
 sub delete_hash {
     my ($this, $hash) = @_;
+    $this->_log_entry if $DEBUG;
 
     my ($table, $field) = split(/:/, $this->{TicketTable});
     my $dbh = $this->dbh;
@@ -594,6 +621,7 @@ sub delete_hash {
 #
 sub is_hash_valid {
     my ($this, $hash) = @_;
+    $this->_log_entry if $DEBUG;
 
     my ($table, $field) = split(/:/, $this->{TicketTable});
     my $dbh = $this->dbh;
@@ -618,6 +646,41 @@ sub is_hash_valid {
     return (defined $value and $value eq $hash) ? 1 : 0;
 }
 
+# PRIVATE METHODS ############################################################
+
+# logs entry into methods
+sub _log_entry {
+    my ($this) = @_;
+    my ($package, $filename, $line, $subroutine, $hasargs,
+        $wantarray, $evaltext, $is_require, $hints, $bitmask) = caller(1);
+    $this->{_r}->log_error("ENTRY $subroutine [line $line]");
+}
+
+# compare cleartext style passwords
+sub _compare_password_cleartext {
+    my ($this, $clearpass, $saved_pass) = @_;
+    $this->_log_entry if $DEBUG;
+
+    return $clearpass eq $saved_pass;
+}
+
+# compare crypt() style passwords
+sub _compare_password_crypt {
+    my ($this, $clearpass, $saved_pass) = @_;
+    $this->_log_entry if $DEBUG;
+
+    my $test_pass = crypt($clearpass, $saved_pass);
+    return $test_pass eq $saved_pass;
+}
+
+# compare md5 style passwords
+sub _compare_password_md5 {
+    my ($this, $clearpass, $saved_pass) = @_;
+    $this->_log_entry if $DEBUG;
+
+    my $test_pass = Digest::MD5->md5_hex($clearpass);
+    return $test_pass eq $saved_pass;
+}
 
 1;
 
@@ -825,9 +888,30 @@ Example: users:usrname:passwd
 
 =item B<TicketPasswordStyle>
 
-This directive is currently unimplemented.  Only cleartext passwords in the
-database are currently supported.  In future versions, you can set this to a
-different value to support crypt or md5 style passwords.
+This directive specifys what type of passwords are stored in the database.  The
+default is to use I<cleartext> passwords.  Currently supported password styles
+are:
+
+=over 3
+
+=item I<cleartext>
+
+This password style is just plain text passwords.  When using this password
+style, the supplied user password is simply compared with the password stored
+in the database.
+
+=item I<md5>
+
+This password style generates an MD5 hex hash of the supplied password before
+comparing it against the password stored in the database.  Passwords should be
+stored in the database by passing them through Digest::MD5->md5_hex().
+
+=item I<crypt>
+
+This password style uses traditional crypt() to encrypt the supplied password
+before comparing it to the password saved in the database.
+
+=back
 
 =item B<TicketSecretTable>
 

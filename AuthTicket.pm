@@ -18,7 +18,7 @@ use constant DEBUGGING => 0;
 
 @ISA = qw(Apache::AuthCookie);
 
-$VERSION = '0.30';
+$VERSION = '0.31';
 
 # configuration items
 # PerlSetVar FooTicketDB  dbi:Pg:dbname=template1

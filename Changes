@@ -1,7 +1,10 @@
+Release 0.31
+   o Removed an email address from Changes file via owners request.
+
 Release 0.30
    o Changed calls from to Digest::MD5->md5_hex to just Digest::MD5::md5_hex()
      This causes md5 passwords generated with other md5() routines (PHP for 
-     example to fail).  Thanks to tyr@winter.teiresias.net for spotting this.
+     example to fail).  Thanks to Steve Chadsey for spotting this.
 
      ** NOTE ** MD5 passwords that worked with previous versions will not work
      with this version due to the fact that md5_hex() was used incorrectly.  

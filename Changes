@@ -1,3 +1,14 @@
+Release 0.30
+   o Changed calls from to Digest::MD5->md5_hex to just Digest::MD5::md5_hex()
+     This causes md5 passwords generated with other md5() routines (PHP for 
+     example to fail).  Thanks to tyr@winter.teiresias.net for spotting this.
+
+     ** NOTE ** MD5 passwords that worked with previous versions will not work
+     with this version due to the fact that md5_hex() was used incorrectly.  
+     Upgrading from previous versions will also invalidate any current tickets
+     because the ticket generation routines also were using md5_hex
+     incorrectly.
+
 Release 0.20
    o Renamed module from Apache::TicketAccess to Apache::AuthTicket after
      discovering that Apache::TicketAccess is distributed with the mod_perl

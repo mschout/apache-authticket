@@ -5,19 +5,34 @@
 package Apache::AuthTicket;
 
 use strict;
-use vars qw($VERSION %DEFAULTS %CONFIG);
+use vars qw($VERSION @ISA %DEFAULTS);
 
-use Apache::Constants qw(OK FORBIDDEN REDIRECT SERVER_ERROR);
-use Apache::Util ();
-use Apache::URI ();
-use Apache::Cookie ();
-use Apache::Request ();
+use Apache::Constants qw(REDIRECT OK);
+use Apache::AuthCookie ();
 use DBI ();
 use Digest::MD5 ();
 
+#use Data::Dumper;
+
+@ISA = qw(Apache::AuthCookie);
+
 $VERSION = '0.12';
 
+# configuration items
+# PerlSetVar FooTicketDB  dbi:Pg:dbname=template1
+# PerlSetVar FooDBUser     test
+# PerlSetVar FooDBPassword  test
+# PerlSetVar FooTicketTable tickets:ticket_hash
+# PerlSetVar FooUserTable   users:usrname:passwd
+# PerlSetVar FooPasswordStyle cleartext
+# PerlSetVar FooSecretTable   ticketsecrets:sec_data:sec_version
+
 %DEFAULTS = (
+    TicketExpires         => 15,
+    TicketTimeLimit       => 30,
+    TicketRefresh         => 'On',
+    TicketLogoutURI       => '/',
+    TicketRefreshInterval => 30,
     TicketDB              => 'dbi:Pg:dbname=template1',
     TicketDBUser          => 'test',
     TicketDBPassword      => 'test',
@@ -25,140 +40,161 @@ $VERSION = '0.12';
     TicketUserTable       => 'users:usrname:passwd',
     TicketPasswordStyle   => 'cleartext',
     TicketSecretTable     => 'ticketsecrets:sec_data:sec_version',
-    TicketExpires         => 15,
-    TicketDomain          => '',
-    TicketPath            => '/',
-    TicketSecure          => '0',
-    TicketTimeLimit       => 30,
-    TicketRefresh         => 'On',
-    TicketLoginForm       => '/loginform',
-    TicketLoginScript     => '/login',
-    TicketLogoutURI       => '/',
-    TicketRefreshInterval => 30
+    TicketLoginHandler    => '/login'
 );
+
+# configured items get dumped in here
+my %CONFIG = ();
 
 my $DEBUG = 0;
 
-sub new {
-    my ($class, $r) = @_;
-    $class = ref $class || $class;
-    my $this = bless { _r => $r }, $class;
-    $this->init($r);
-    return $this;
-}
-
-sub init {
-    my ($this, $r) = @_;
-    die 'usage: '.__PACKAGE__.'->new($r)'."\n" unless defined $r;
-    $this->request($r);
-
-    my $label = $r->dir_config('TicketRealm');
-    $this->realm($label);
-
-    for my $i (keys %DEFAULTS) {
-        $this->{$i} = $CONFIG{$label}->{$i} || $r->dir_config($i) ||
-            $DEFAULTS{$i};
-    }
-}
-
-sub request {
-    my ($this, $value) = @_;
-    $this->{request} = $value if defined $value;
-    $this->{request};
-}
-
-sub realm {
-    my ($this, $value) = @_;
-    $this->{realm} = $value if defined $value;
-    $this->{realm};
-}
-
-#
-# here we provide a way to configure the package via perl
-# instead of adding unnecessary cruft to your configuration file.
-#
-# usage: class->configure(realm, \%options)
-#
 sub configure {
-    my ($class, $label, $args) = @_;
-
-    Apache->push_handlers( PerlChildInitHandler =>
-        sub {
-            $CONFIG{$label} = {};
-
-            for my $i (keys %$args) {
-                die "invalid config item: $i\n" unless defined $DEFAULTS{$i};
-
-                $CONFIG{$label}->{$i} = $args->{$i};
-            }
-        }
-    );
-}
-
-sub authenticate ($$) {
-    my ($class, $r) = @_;
-
-    my $this = $class->new($r);
-    my ($result, $msg) = $this->verify_ticket($r);
-
-    return $this->go_to_login_form($msg) unless $result;
-
-    $r->log_error("Ticket is valid") if $DEBUG;
-
-    return OK;
-}
-
-sub login_form ($$) {
-    my ($class, $r) = @_;
-
-    if (lc $r->dir_config('Filter') eq 'on') {
-        $r->filter_input(handle=>1);
+    my ($class, $auth_name, $conf) = @_;
+    for (keys %$conf) {
+        die "bad configuration parameter $_" unless defined $DEFAULTS{$_};
+        $CONFIG{$auth_name}->{$_} = $conf->{$_};
     }
-
-    my $this = $class->new($r);
-
-    my $apr = Apache::Request->new($r);
-
-    my $action = $this->{TicketLoginScript};
-    my $request_uri = $apr->param('request_uri') || $r->prev->uri;
-
-    my $msg = $apr->param('message');
-    $this->make_login_screen($r, $action, $request_uri, $msg);
-
-    return OK;
+    #warn 'After config. %CONFIGURE looks like this\n',
+    #     Dumper(\%CONFIG);
 }
 
-sub login ($$) {
-    my ($class, $r) = @_;
-
-    if (lc $r->dir_config('Filter') eq 'on') {
-        $r->filter_input(handle=>1);
-    }
+# check credentials and return a session key if valid
+# return undef if invalid
+sub authen_cred {
+    my ($class, $r, @cred) = @_;
 
     my $this = $class->new($r);
 
-    my $apr = Apache::Request->new($r);
-
-    my ($user, $pass, $dest) = 
-        map { $apr->param($_) } qw/username password request_uri/;
-
-    my $action = $this->{TicketLoginScript};
-    my $request_uri = $apr->param('request_uri') || $r->prev->uri;
-
+    my ($user, $pass) = @cred;
     my ($result, $msg) = $this->check_credentials($user, $pass);
     if ($result) {
-        my $ticket = $this->make_ticket($r, $user);
-        unless ($ticket) {
-            $r->log_error("Couldn't make ticket -- missing secret?");
-            return SERVER_ERROR;
-        }
-        $r->err_headers_out->add('Location' => $dest);
-        return REDIRECT;
+        return $this->make_ticket($r, $user);
     } else {
-        $this->make_login_screen($r, $action, $request_uri, $msg);
-        return OK;
+        return undef;
     }
 }
+
+# check a session key, return user id
+# return undef if its not valid.
+sub authen_ses_key {
+    my ($class, $r, $session_key) = @_;
+
+    my $this = $class->new($r);
+    if ($this->verify_ticket($session_key)) {
+        my %ticket = $this->_unpack_ticket($session_key);
+        return $ticket{user};
+    } else {
+        return undef;
+    }
+}
+
+sub _get_config_item {
+    my ($class, $r, $item) = @_;
+
+    my $auth_name = $r->auth_name;
+
+    my $value = $r->dir_config("${auth_name}$item") ||
+           $CONFIG{$auth_name}->{$item} ||
+           $DEFAULTS{$item};
+    warn "returning [$value] for $item" if $DEBUG;
+    return $value;
+}
+
+sub login_screen ($$) {
+    my ($class, $r) = @_;
+
+    my $auth_name = $r->auth_name;
+
+    my $action = $class->_get_config_item($r, 'TicketLoginHandler');
+
+    my $destination = $r->prev->uri;
+    my $args = $r->prev->args;
+    if ($args) {
+        $destination .= "?$args";
+    }
+
+    $class->make_login_screen($r, $action, $destination);
+
+    return OK;
+}
+
+sub make_login_screen {
+    my ($self, $r, $action, $destination) = @_;
+
+    $r->content_type('text/html');
+
+    $r->send_http_header;
+
+    $r->print(
+        q{<!DOCTYPE HTML PUBLIC  "-//W3C//DTD HTML 3.2//EN">},
+        q{<HTML>},
+        q{<HEAD>},
+        q{<TITLE>Log in</TITLE>},
+        q{</HEAD>},
+        q{<BODY bgcolor="#ffffff">},
+        q{<H1>Please Log In</H1>}
+    );
+
+    #if (defined $msg and $msg) {
+    #    $r->print(qq{<h2><font color="#ff0000">Error: $msg</font></h2>});
+    #}
+
+    $r->print(
+        qq{<form method="post" action="$action">},
+        qq{<input type="hidden" name="destination" value="$destination">},
+        q{<table>},
+        q{<tr>},
+        q{<td>Name</td>},
+        q{<td><input type="text" name="credential_0"></td>},
+        q{</tr>},
+        q{<tr>},
+        q{<td>Password</td>},
+        q{<td><input type="password" name="credential_1"></td>},
+        q{</tr>},
+        q{</table>},
+        q{<input type="submit" value="Log In">},
+        q{<p>},
+        q{</form>},
+        q{<EM>Note: </EM>},
+        q{Set your browser to accept cookies in order for login to succeed.},
+        q{You will be asked to log in again after some period of time.},
+        q{</body></html>}
+    );
+
+    return OK;
+}
+
+#sub login ($$) {
+#    my ($class, $r) = @_;
+#
+#    if (lc $r->dir_config('Filter') eq 'on') {
+#        $r->filter_input(handle=>1);
+#    }
+#
+#    my $this = $class->new($r);
+#
+#    my $apr = Apache::Request->new($r);
+#
+#    my ($user, $pass, $dest) = 
+#        map { $apr->param($_) } qw/username password request_uri/;
+#
+#    my $action = $this->{TicketLoginScript};
+#    my $request_uri = $apr->param('request_uri') || $r->prev->uri;
+#
+#    my ($result, $msg) = $this->check_credentials($user, $pass);
+#    if ($result) {
+#        my $ticket = $this->make_ticket($r, $user);
+#        unless ($ticket) {
+#            $r->log_error("Couldn't make ticket -- missing secret?");
+#            return SERVER_ERROR;
+#        }
+#        $r->err_headers_out->add('Location' => $dest);
+#        return REDIRECT;
+#    } else {
+#        $this->make_login_screen($r, $action, $request_uri, $msg);
+#        return OK;
+#    }
+#}
 
 sub logout ($$) {
     my ($class, $r) = @_;
@@ -169,47 +205,58 @@ sub logout ($$) {
 
     my $this = $class->new($r);
 
-    $this->expire_ticket($r);
-
-    if ($DEBUG) {
-        my %head = $r->err_headers_out;
-        for my $hdr (keys %head) {
-            $r->log_error("$hdr: $head{$hdr}");
-        }
-    }
+    $this->delete_ticket($r);
+    $this->SUPER::logout($r);
 
     $r->err_headers_out->add('Location' => $this->{TicketLogoutURI});
     return REDIRECT;
 }
 
-sub get_config {
-    my ($this, $realm) = @_;
-    $this->_log_entry if $DEBUG;
-    return $CONFIG{$realm};
+##################### END STATIC METHODS ###########################3
+sub new {
+    my ($class, $r) = @_;
+    $class = ref $class || $class;
+
+    my $this = bless {
+        _REQUEST => $r
+    }, $class;
+
+    $this->init($r);
+
+    #warn "After init I look like this\n";
+    #warn Dumper($this), "\n";
+
+    return $this;
 }
 
-sub go_to_login_form {
-    my ($this, $msg) = @_;
-    $this->_log_entry if $DEBUG;
+sub init {
+    my ($this, $r) = @_;
+    $this->{_DBH} = $this->dbi_connect;
 
-    my $r = $this->request;
+    my $auth_name = $r->auth_name;
 
-    my $uri = Apache::URI->parse($r, $this->{TicketLoginForm});
-    $uri->query( Apache::Util::escape_uri("message=$msg") );
-    $r->log_error("URI: ".$uri->unparse) if $DEBUG;
-    $r->custom_response(FORBIDDEN, $uri->unparse);
-    return FORBIDDEN;
+    # initialize configuration
+    map {
+        $this->{$_} = $this->_get_config_item($r, $_);
+    } keys %DEFAULTS;
 }
 
-#-----------------------------------------------------------------------------
+sub request { shift->{_REQUEST} }
+sub dbh     { shift->{_DBH} }
 
 sub dbi_connect {
     my ($this) = @_;
     $this->_log_entry if $DEBUG;
 
-    my $dbh = DBI->connect($this->{TicketDB},
-                           $this->{TicketDBUser},
-                           $this->{TicketDBPassword});
+    my $r         = $this->request;
+    my $auth_name = $r->auth_name;
+
+    my ($db, $user, $pass) = map {
+        $this->_get_config_item($r, $_)
+    } qw/TicketDB TicketDBUser TicketDBPassword/;
+
+    my $dbh = DBI->connect($db, $user, $pass)
+        or die "DBI Connect failure: ", DBI->errstr, "\n";
 
     return $dbh;
 }
@@ -277,62 +324,6 @@ sub get_password {
     }
 
     return $passwd;
-}
-
-#
-# get or set the DBI handle
-# 
-# will automatically call this->dbi_connect on the first call
-sub dbh {
-    my ($this) = @_;
-    $this->_log_entry if $DEBUG;
-    $this->{_DBH} = $this->dbi_connect() if not defined $this->{_DBH};
-    $this->{_DBH};
-}
-
-# overload this to make your own login sscren
-sub make_login_screen {
-    my ($this, $r, $action, $request_uri, $msg) = @_;
-    $this->_log_entry if $DEBUG;
-
-    $r->content_type('text/html');
-
-    $r->send_http_header() unless (lc $r->dir_config('Filter') eq 'on');
-
-    $r->print(
-        q{<!DOCTYPE HTML PUBLIC  "-//W3C//DTD HTML 3.2//EN">},
-        q{<HTML>},
-        q{<HEAD>},
-        q{<TITLE>Log in</TITLE>},
-        q{</HEAD>},
-        q{<BODY bgcolor="#ffffff">},
-        q{<H1>Please Log In</H1>}
-    );
-
-    if (defined $msg and $msg) {
-        $r->print(qq{<h2><font color="#ff0000">Error: $msg</font></h2>});
-    }
-
-    $r->print(
-        qq{<form method="post" action="$action">},
-        qq{<input type="hidden" name="request_uri" value="$request_uri">}.
-        q{<table>},
-        q{<tr>},
-        q{<td>Name</td>},
-        q{<td><input type="text" name="username"></td>},
-        q{</tr>},
-        q{<tr>},
-        q{<td>Password</td>},
-        q{<td><input type="password" name="password"></td>},
-        q{</tr>},
-        q{</table>},
-        q{<input type="submit" value="Log In">},
-        q{<p>},
-        q{</form>},
-        q{<EM>Note: </EM>},
-        q{Set your browser to accept cookies in order for login to succeed.},
-        q{You will be asked to log in again after some period of time.}
-    );
 }
 
 sub check_credentials {
@@ -416,7 +407,6 @@ sub make_ticket {
     my ($this, $r, $user_name) = @_;
     $this->_log_entry if $DEBUG;
 
-    my $realm    = $this->realm;
     my $now      = time();
     my $expires  = $now + $this->{TicketExpires} * 60;
     my $ip       = $r->connection->remote_ip;
@@ -437,50 +427,19 @@ sub make_ticket {
 
     $this->save_hash($key{'hash'});
 
-    my $cookie = Apache::Cookie->new($r,
-                         -name    => "$realm\_Ticket",
-                         -value   => \%key,
-                         -domain  => $this->{TicketDomain},
-                         -path    => $this->{TicketPath},
-                         -secure  => $this->{TicketSecure});
-
-
-    $cookie->bake;
-    $r->log_error("MAKE TICKET: ".$cookie->as_string) if $DEBUG;
-    return $cookie
+    return $this->_pack_ticket(%key);
 }
 
 # invalidate the ticket by expiring the cookie, and delete the hash locally
-sub expire_ticket {
+sub delete_ticket {
     my ($this, $r) = @_;
     $this->_log_entry if $DEBUG;
 
-    my $realm   = $this->realm;
-    my $name    = "$realm\_Ticket";
-    my $cookie  = Apache::Cookie->new($r);
-    my %cookies = $cookie->fetch;
+    my $key = $this->key();
+    warn "delete_ticket: key $key" if $DEBUG;
+    my %ticket = $this->_unpack_ticket($key);
 
-    return undef unless defined $cookies{$name};
-
-    my $tcookie = $cookies{$name};
-    my %ticket = $tcookie->value;
     $this->delete_hash($ticket{'hash'});
-
-    # try to coax the browser to discard the cookie
-    $tcookie->expires('-5y');
-    $tcookie->bake;
-}
-
-# Apache::Cookie get_ticket()
-sub get_ticket {
-    my ($this, $r) = @_;
-    $this->_log_entry if $DEBUG;
-
-    my $realm   = $this->realm;
-    my $cookie  = Apache::Cookie->new($r);
-    my %cookies = $cookie->fetch;
-
-    return $cookies{"$realm\_Ticket"};
 }
 
 #
@@ -492,7 +451,7 @@ sub check_ticket_format {
     my ($this, %key) = @_;
     $this->_log_entry if $DEBUG;
 
-    $this->{_r}->log_error("key is ".join(' ', %key)) if $DEBUG;
+    $this->request->log_error("key is ".join(' ', %key)) if $DEBUG;
     for my $param (qw(version time user expires hash)) {
         return 0 unless defined $key{$param};
     }
@@ -500,43 +459,46 @@ sub check_ticket_format {
     return 1;
 }
 
+sub _unpack_ticket {
+    my ($self, $key) = @_;
+    return split(':', $key);
+}
+
+sub _pack_ticket {
+    my ($self, %ticket) = @_;
+    return join(':', %ticket);
+}
+
 #
-# (boolean, String) verify_ticket($r)
+# boolean verify_ticket($key)
 #
 # Verify the ticket and return true or false.
-# A string containing the reason for the failure is returned if the
-# ticket is invalid.
 #
 sub verify_ticket {
-    my ($this, $r) = @_;
+    my ($this, $key) = @_;
     $this->_log_entry if $DEBUG;
 
-    my $realm   = $this->realm;
-    my $name    = "$realm\_Ticket";
-    my $cookie  = Apache::Cookie->new($r);
-    my %cookies = $cookie->parse;
+    my $r = $this->request;
 
-    unless (%cookies) {
-        return (0, 'user has no cookies');
-    }
-    unless ($cookies{$name}) {
-        return (0, 'user has no ticket');
-    }
-
-    my %ticket = $cookies{$name}->value;
+    warn "ticket is $key\n" if $DEBUG;
     my ($secret, $sec_version);
+    my %ticket = $this->_unpack_ticket($key);
 
     unless ($this->check_ticket_format(%ticket)) {
-        return (0, 'malformed ticket');
+        # malformed ticket
+        return 0;
     }
     unless ($this->is_hash_valid($ticket{'hash'})) {
-        return (0, 'invalid ticket');
+        # invalid ticket
+        return 0;
     }
     unless ($r->request_time < $ticket{'expires'}) {
-        return (0, 'ticket has expired');
+        # ticket has expired
+        return 0;
     }
     unless (($secret, $sec_version) = $this->fetch_secret($ticket{'version'})) {
-        return (0, 'can\'t retrieve secret');
+        # cat get server secret
+        return 0;
     }
 
     # create a new hash and verify that it matches the supplied hash
@@ -548,12 +510,13 @@ sub verify_ticket {
                   );
 
     unless ($newhash eq $ticket{'hash'}) {
-        return (0, 'ticket mismatch');
+        # ticket hash does not match (ticket tampered with?)
+        return 0;
     }
 
+    # otherwise, everything is ok
     $r->connection->user($ticket{'user'});
-
-    return (1, 'ok');
+    return 1;
 }
 
 ########## SERVER SIDE HASH MANAGEMENT METHODS
@@ -643,9 +606,8 @@ sub is_hash_valid {
 # logs entry into methods
 sub _log_entry {
     my ($this) = @_;
-    my ($package, $filename, $line, $subroutine, $hasargs,
-        $wantarray, $evaltext, $is_require, $hints, $bitmask) = caller(1);
-    $this->{_r}->log_error("ENTRY $subroutine [line $line]");
+    my ($package, $filename, $line, $subroutine) = caller(1);
+    $this->request->log_error("ENTRY $subroutine [line $line]");
 }
 
 # compare cleartext style passwords
@@ -742,11 +704,6 @@ Apache::AuthTicket - Cookie based access module.
      TicketUserTable       => 'users:usenaem:passwd',
      TicketTable           => 'tickets:ticket_hash',
      TicketSecretTable     => 'ticketsecrets:sec_data:sec_version',
-     TicketDomain          => '.foo.com',
-     TicketPath            => '/protected',
-     TicketSecure          => 1,
-     TicketLoginForm       => '/loginform',
-     TicketLoginScript     => '/login',
      TicketExpires         => 15
  });
 
@@ -949,31 +906,6 @@ This directive specifys the number of minutes that tickets should remain
 valid for.  If a user exceeds this limit, they will be forced to log in
 again.
 
-=item B<TicketDomain>
-
-This directive specifys the "domain" field to pass with the Ticket cookie.
-
-=item B<TicketPath>
-
-this directive specifys the "path" field to pass with the Ticket cookie.
-
-=item B<TicketSecure>
-
-This directive specifys if the "secure" flag should be set with the Ticket
-cookie.  If this is set to a true value, then the cookies will only be sent
-over SSL connections.
-
-=item B<TicketLoginForm>
-
-This directive specifys the URL of the login form.
-
-Example: /loginform
-
-=item B<TicketLoginScript>
-
-This directive specifys the directive of the login handler
-
-Example: /login
 
 =item B<TicketLogoutURI>
 

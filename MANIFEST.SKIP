@@ -1,0 +1,5 @@
+^blib/
+^MANIFEST\.
+^Makefile$
+^pm_to_blib$
+CVS/

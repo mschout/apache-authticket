@@ -1,4 +1,7 @@
 2000-04-19 Michael Schout <mschout@gkg.net>
+    Made $dbh->commit calls only happen if AutoCommit is off.
+
+2000-04-19 Michael Schout <mschout@gkg.net>
     Implemented TicketPasswordStyle directives to support:
 		    - md5
 				- cleartext

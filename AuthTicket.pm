@@ -581,7 +581,7 @@ sub save_hash {
     eval {
         my $sth = $dbh->prepare($query);
         $sth->execute($hash);
-        $dbh->commit;
+        $dbh->commit unless $dbh->{AutoCommit} || 0;
     };
     if ($@) {
         $dbh->rollback;
@@ -608,7 +608,7 @@ sub delete_hash {
     eval {
         my $sth = $dbh->prepare($query);
         $sth->execute($hash);
-        $dbh->commit;
+        $dbh->commit unless $dbh->{AutoCommit} || 0;
     };
     if ($@) {
         $dbh->rollback;

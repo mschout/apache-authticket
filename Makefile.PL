@@ -35,7 +35,7 @@ chk_version( 'DBI' => 0 ) or
     die "\n"
     ."You need to have DBI installed in order to install this module\n\n";
 
-chk_version( 'Digets::MD5' => 0 ) or 
+chk_version( 'Digest::MD5' => 0 ) or 
     die "\n"
     ."You need to have Digetst::MD5 installed in order to "
     ."install this module\n\n";

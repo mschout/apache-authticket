@@ -1,8 +1,36 @@
-2000-04-19 Michael Schout <mschout@gkg.net>
-    Made $dbh->commit calls only happen if AutoCommit is off.
+2000-04-24  Michael J Schout  <mschout@galaxy.gkg-com.com>
 
-2000-04-19 Michael Schout <mschout@gkg.net>
-    Implemented TicketPasswordStyle directives to support:
-		    - md5
-				- cleartext
-				- crypt
+	* TicketAccess.pm:
+
+		Changed cookine name to ${TicketRealm}_Ticket so that a single browser can
+		be logged in to multiple realms simultaneously without clobbering the
+		Ticket.
+
+2000-04-19  Michael J Schout  <mschout@galaxy.gkg-com.com>
+
+	* TicketAccess.pm:
+
+	Made dbh->commit calls only happen if AutoCommit is off.
+
+	* TicketAccess.pm:
+
+	Implemented TicketPasswordStyle directives to support:
+	    - md5
+	    - cleartext
+	    - crypt
+
+2000-04-14  Michael J Schout  <mschout@galaxy.gkg-com.com>
+
+	* TicketAccess.pm:
+	fixed some pod docs errors, added TicketPasswordStyle config item reserved
+	for future
+
+	* TicketAccess.pm:
+	Merged TicketTool.pm into TicketAccess.pm so the whole thing stands alone
+
+2000-04-13  Michael J Schout  <mschout@galaxy.gkg-com.com>
+
+	* TicketAccess.pm:
+	Initial import of release 0.01
+
+	* TicketAccess.pm: New file.

@@ -5,7 +5,7 @@
 package Apache::AuthTicket;
 
 use strict;
-use vars qw($VERSION @ISA %DEFAULTS);
+use vars qw($VERSION @ISA %DEFAULTS %CONFIG);
 
 use Apache::Constants qw(REDIRECT OK);
 use Apache::AuthCookie ();
@@ -48,13 +48,20 @@ my $DEBUG = 0;
 
 sub configure {
     my ($class, $auth_name, $conf) = @_;
-    for (keys %$conf) {
-        die "bad configuration parameter $_" unless defined $DEFAULTS{$_};
-        $CONFIG{$auth_name}->{$_} = $conf->{$_};
-    }
-    #warn 'After config. %CONFIGURE looks like this\n',
-    #     Dumper(\%CONFIG);
+
+    Apache->push_handlers( PerlChildInitHandler =>
+        sub {
+            for (keys %$conf) {
+                die "bad configuration parameter $_" 
+                    unless defined $DEFAULTS{$_};
+                $CONFIG{$auth_name}->{$_} = $conf->{$_};
+            }
+            #warn 'After config. %CONFIGURE looks like this\n',
+            #     Dumper(\%CONFIG);
+        }
+    );
 }
+
 # check credentials and return a session key if valid
 # return undef if invalid
 sub authen_cred {

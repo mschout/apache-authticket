@@ -16,7 +16,7 @@ use Digest::MD5 ();
 
 @ISA = qw(Apache::AuthCookie);
 
-$VERSION = '0.12';
+$VERSION = '0.20';
 
 # configuration items
 # PerlSetVar FooTicketDB  dbi:Pg:dbname=template1

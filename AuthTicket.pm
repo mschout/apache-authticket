@@ -429,6 +429,7 @@ sub make_ticket {
     my ($this, $r, $user_name) = @_;
     $this->_log_entry if $DEBUG;
 
+    my $realm    = $this->realm;
     my $now      = time();
     my $expires  = $now + $this->{TicketExpires} * 60;
     my $ip       = $r->connection->remote_ip;
@@ -450,7 +451,7 @@ sub make_ticket {
     $this->save_hash($key{'hash'});
 
     my $cookie = Apache::Cookie->new($r,
-                         -name    => 'Ticket',
+                         -name    => "$realm\_Ticket",
                          -value   => \%key,
                          -domain  => $this->{TicketDomain},
                          -path    => $this->{TicketPath},
@@ -467,12 +468,14 @@ sub expire_ticket {
     my ($this, $r) = @_;
     $this->_log_entry if $DEBUG;
 
-    my $cookie = Apache::Cookie->new($r);
+    my $realm   = $this->realm;
+    my $name    = "$realm\_Ticket";
+    my $cookie  = Apache::Cookie->new($r);
     my %cookies = $cookie->fetch;
 
-    return undef unless defined $cookies{'Ticket'};
+    return undef unless defined $cookies{$name};
 
-    my $tcookie = $cookies{'Ticket'};
+    my $tcookie = $cookies{$name};
     my %ticket = $tcookie->value;
     $this->delete_hash($ticket{'hash'});
 
@@ -486,9 +489,11 @@ sub get_ticket {
     my ($this, $r) = @_;
     $this->_log_entry if $DEBUG;
 
-    my $cookie = Apache::Cookie->new($r);
+    my $realm   = $this->realm;
+    my $cookie  = Apache::Cookie->new($r);
     my %cookies = $cookie->fetch;
-    return $cookies{'Ticket'}
+
+    return $cookies{"$realm\_Ticket"};
 }
 
 #
@@ -519,19 +524,21 @@ sub verify_ticket {
     my ($this, $r) = @_;
     $this->_log_entry if $DEBUG;
 
-    my $cookie = Apache::Cookie->new($r);
+    my $realm   = $this->realm;
+    my $name    = "$realm\_Ticket";
+    my $cookie  = Apache::Cookie->new($r);
     my %cookies = $cookie->parse;
 
     unless (%cookies) {
         # no cookies
         return (0, '');
     }
-    unless ($cookies{'Ticket'}) {
+    unless ($cookies{$name}) {
         # no ticket
         return (0, '');
     }
 
-    my %ticket = $cookies{'Ticket'}->value;
+    my %ticket = $cookies{$name}->value;
     my ($secret, $sec_version);
 
     unless ($this->check_ticket_format(%ticket)) {

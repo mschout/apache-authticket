@@ -1,0 +1,15 @@
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         Apache-AuthTicket
+version:      0.40
+version_from: lib/Apache/AuthTicket.pm
+installdirs:  site
+requires:
+    Apache2::AuthCookie:           3.0
+    DBI:                           0
+    Digest::MD5:                   0
+    SQL::Abstract:                 0
+    Test::More:                    0
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.17

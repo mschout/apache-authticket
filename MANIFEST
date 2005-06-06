@@ -10,3 +10,4 @@ sample/apache.conf
 sample/apache2.conf
 sample/pgsql.sql
 sample/mysql.sql
+META.yml                                 Module meta-data (added by MakeMaker)

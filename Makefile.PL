@@ -7,7 +7,8 @@ my $mp_version = mod_perl_version();
 my %prereq = (
     'DBI'           => 0,
     'Digest::MD5'   => 0,
-    'SQL::Abstract' => 0
+    'SQL::Abstract' => 0,
+    'Test::More'    => 0
 );
 
 if ($mp_version == 2) {

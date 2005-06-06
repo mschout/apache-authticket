@@ -1,7 +1,8 @@
 README
 MANIFEST
 Makefile.PL
-AuthTicket.pm
+lib/Apache/AuthTicket.pm
+lib/Apache2/AuthTicket.pm
 test.pl
 Changes
 TODO

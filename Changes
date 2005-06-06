@@ -1,5 +1,8 @@
-Release CURRENT
+Release 0.40
    o update to use new Apache::Filter API (you need at least 1.012 now)
+   o Create Apache2::AuthTicket from copy of Apache::AuthTicket and ported to
+     mod_perl 2.0 API.  This is the first release that supports mod_perl2
+   o MP2 - use SQL::Abstract to generate queries
 
 Release 0.31
    o Removed an email address from Changes file via owners request.

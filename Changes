@@ -1,3 +1,6 @@
+Release Current
+   o MP2: documentation updates.
+
 Release 0.40
    o update to use new Apache::Filter API (you need at least 1.012 now)
    o Create Apache2::AuthTicket from copy of Apache::AuthTicket and ported to

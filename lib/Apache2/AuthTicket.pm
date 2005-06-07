@@ -693,7 +693,7 @@ sub _get_max_secret_version {
 
     my ($secret_table, $secret_field, $secret_version_field) =
         split(/:/, $this->{TicketSecretTable});
-    
+
     my $dbh = $this->dbh;
 
     my $query = qq{
@@ -723,12 +723,12 @@ __END__
 
 =head1 NAME
 
-Apache::AuthTicket - Cookie based access module.
+Apache2::AuthTicket - Cookie based access module.
 
 =head1 SYNOPSIS
 
  # in httpd.conf
- PerlModule Apache::AuthTicket
+ PerlModule Apache2::AuthTicket
  PerlSetVar FooTicketDB DBI:mysql:database=mschout;host=testbed
  PerlSetVar FooTicketDBUser test
  PerlSetVar FooTicketDBPassword secret
@@ -746,10 +746,10 @@ Apache::AuthTicket - Cookie based access module.
  PerlSetVar FooLoginScript /foologinform
  
  <Location /foo>
-     AuthType Apache::AuthTicket
+     AuthType Apache2::AuthTicket
      AuthName Foo
-     PerlAuthenHandler Apache::AuthTicket->authenticate
-     PerlAuthzHandler Apache::AuthTicket->authorize
+     PerlAuthenHandler Apache2::AuthTicket->authenticate
+     PerlAuthzHandler Apache2::AuthTicket->authorize
      require valid-user
  </Location>
  
@@ -780,11 +780,11 @@ This module provides ticket based access control.  The theory behind this is
 similar to the system described in the eagle book.
 
 This module works using HTTP cookies to check if a user is authorized to view a
-page.  I<Apache::AuthCookie> is used as the underlying mechanism for managing
+page.  I<Apache2::AuthCookie> is used as the underlying mechanism for managing
 cookies.
 
 This module was designed to be as extensible as possible.  Its quite likely
-that you will want to create your own subclass of I<Apache::AuthTicket> in
+that you will want to create your own subclass of I<Apache2::AuthTicket> in
 order to customize various aspects of this module (show your own versions of
 the forms, override database methods etc). 
 
@@ -811,7 +811,7 @@ is incorporated into the cryptographic signature. If the ticket were
 intercepted, then an attacker would have to steal the user's IP address in
 order to be able to use the ticket.  Plus, since the tickets can expire
 automatically, we can be sure that the ticket is not valid for a long period of
-time.  Finally, by using the I<Secure> mode of I<Apache::AuthCookie>, the
+time.  Finally, by using the I<Secure> mode of I<Apache2::AuthCookie>, the
 ticket is not passed over unencrypted connections.  In order to attack this
 system, an attacker would have to exploit both the MD5 algorightm as well as
 SSL. Chances are, by the time the user could break both of these, the ticket
@@ -828,7 +828,7 @@ There are two things you must do in order to configure this module:
 
 There are two ways that this module could be configured.  Either by using a
 function call in startup.pl, or by configuring each handler explicitly in
-httpd.conf.  If you decide to mix and match using calls to Apache::AuthTicket->configure() with directives in httpd.conf, then remember that the following precedence applies:
+httpd.conf.  If you decide to mix and match using calls to Apache2::AuthTicket->configure() with directives in httpd.conf, then remember that the following precedence applies:
 
  o If a directive is specified in httpd.conf, it will be used.
  o else if a directive is specified by configure(), then the 
@@ -843,10 +843,10 @@ these is the block specifying your access restrictions.  This block should look
 somrthing like this:
 
  <Location /foo>
-     AuthType Apache::AuthTicket
+     AuthType Apache2::AuthTicket
      AuthName Foo
-     PerlAuthenHandler Apache::AuthTicket->authenticate
-     PerlAuthzHandler Apache::AuthTicket->authorize
+     PerlAuthenHandler Apache2::AuthTicket->authenticate
+     PerlAuthzHandler Apache2::AuthTicket->authorize
      require valid-user
  </Location>
 
@@ -854,37 +854,37 @@ The remaining blocks control how to display the login form, and the login and
 logout urls.  These blocks should look similar to this:
 
  <Location /foologinform>
-     AuthType Apache::AuthTicket
+     AuthType Apache2::AuthTicket
      AuthName Foo
      SetHandler perl-script
-     Perlhandler Apache::AuthTicket->login_screen
+     PerlResponseHandler Apache2::AuthTicket->login_screen
  </Location>
  
  <Location /foologin>
-     AuthType    Apache::AuthTicket
+     AuthType    Apache2::AuthTicket
      AuthName    Foo
      SetHandler  perl-script
-     PerlHandler Apache::AuthTicket->login
+     PerlResponseHandler Apache2::AuthTicket->login
  </Location>
  
  <Location /foo/logout>
-     AuthType Apache::AuthTicket
+     AuthType Apache2::AuthTicket
      AuthName Foo
      SetHandler perl-script
-     PerlHandler Apache::AuthTicket->logout
+     PerlResponseHandler Apache2::AuthTicket->logout
  </Location>
 
 =head2 Apache Configuration - startup.pl
 
-Any I<Apache::AuthTicket> configuration items can be set in startup.pl.  You
+Any I<Apache2::AuthTicket> configuration items can be set in startup.pl.  You
 can configure an AuthName like this:
 
- Apache::AuthTicket->configure(String auth_name, *Hash config)
+ Apache2::AuthTicket->configure(String auth_name, *Hash config)
 
 Note that when configuring this way you dont prefix the configuration items
 with the AuthName value like you do when using PerlSetVar directives.
 
-Note: You must still include I<Apache::AuthCookie> configuration directives in 
+Note: You must still include I<Apache2::AuthCookie> configuration directives in 
 httpd.conf when configuring the server this way.  These items include:
 
     PerlSetVar FooPath /
@@ -893,7 +893,7 @@ httpd.conf when configuring the server this way.  These items include:
     PerlSetVar FooLoginScript /foologinform
 
 example:
- Apache::AuthTicket->configure('Foo', {
+ Apache2::AuthTicket->configure('Foo', {
      TicketDB            => 'DBI:mysql:database=test;host=foo',
      TicketDBUser        => 'mschout',
      TicketDBPassword    => 'secret',
@@ -1055,7 +1055,7 @@ This table is configured by the I<TicketSecretTable> directive.
 
 =head1 METHODS
 
-This is not a complete listing of methods contained in I<Apache::AuthTicket>.
+This is not a complete listing of methods contained in I<Apache2::AuthTicket>.
 Rather, it is a listing of methods that you might want to overload if you were
 subclassing this module.  Other methods that exist in the module are probably
 not useful to you.
@@ -1072,21 +1072,21 @@ overload this method to create your own login screen.  The log in screen only
 needs to contain a hidden field called "destination" with the contents of
 I<destination> in it, a text field named I<credential_0> and a password field
 named I<credential_1>.  You are responsible for sending the http header as well
-as the content.  See I<Apache::AuthCookie> for the description of what each of
+as the content.  See I<Apache2::AuthCookie> for the description of what each of
 these fields are for.
 
 I<action> contains the action URL for the form.  You must set the action of
 your form to this value for it to function correctly.
 
-I<Apache::AuthTicket> also provides a mechanism to determine why the login for
+I<Apache2::AuthTicket> also provides a mechanism to determine why the login for
 is being displayed.  This can be used in conjunction with
-I<Apache::AuthCookie>'s "AuthCookieReason" setting to determine why the user is
-being asked to log in.  I<Apache::AuthCookie> sets
+I<Apache2::AuthCookie>'s "AuthCookieReason" setting to determine why the user is
+being asked to log in.  I<Apache2::AuthCookie> sets
 $r->prev->subprocess_env("AuthCookieReason") to either "no_cookie" or
 "bad_cookie" when this page is loaded.  If the value is "no_cookie" then the
 user is being asked to log in for the first time, or they are logging in after
 they previously logged out.  If this value is "bad_cookie" then
-I<Apache::AuthTicket> is asking them to re-login for some reason.  To determine
+I<Apache2::AuthTicket> is asking them to re-login for some reason.  To determine
 what this reason is, you must examine
 $r->prev->subprocess_env("AuthTicketReason").  I<AuthTicketReason> can take the
 following values:
@@ -1156,8 +1156,8 @@ software, please let me know.
 The idea for this module came from the Ticket Access system in the eagle book,
 along with several ideas discussed on the mod_perl mailing list.
 
-Thanks to Ken Williams for his wonderful I<Apache::AuthCookie> module, and for
-putting in the necessary changes to I<Apache::AuthCookie> to make this module
+Thanks to Ken Williams for his wonderful I<Apache2::AuthCookie> module, and for
+putting in the necessary changes to I<Apache2::AuthCookie> to make this module
 work!
 
 =head1 AUTHOR
@@ -1166,6 +1166,6 @@ Michael Schout <mschout@gkg.net>
 
 =head1 SEE ALSO
 
-L<perl>, L<mod_perl>, L<Apache>, L<Apache::AuthCookie>
+L<perl>, L<mod_perl>, L<Apache>, L<Apache2::AuthCookie>
 
 =cut

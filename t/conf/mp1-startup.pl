@@ -1,5 +1,5 @@
 #!perl
 
-use lib qw(../blib/lib);
+use lib qw(../blib/lib blib/lib);
 
 1;

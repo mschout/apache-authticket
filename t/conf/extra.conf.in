@@ -4,10 +4,63 @@
 
 <IfDefine APACHE1>
   PerlRequire @ServerRoot@/conf/mp1-startup.pl
+
+  PerlModule Apache::AuthTicket
 </IfDefine>
+
+PerlSetVar ProtectedTicketDb             dbi:SQLite:@ServerRoot@/db/test.db
+PerlSetVar ProtectedTicketTable          tickets:t_hash:update_ts
+PerlSetVar ProtectedTicketUserTable      t_users:usrname:passwd
+PerlSetVar ProtectedTicketPasswordStyle  cleartext
+PerlSetVar ProtectedTicketSecretTable    t_secret:s_data:s_version
+PerlSetVar ProtectedTicketExpires        15
+PerlSetVar ProtectedTicketLogoutURI      /protected/index.html
+PerlSetVar ProtectedTicketLoginHandler   /login
+PerlSetVar ProtectedTicketIdleTimeout    1
+# PerlSetVar ProtectedPath                 /
+# PerlSetVar ProtectedDomain               .foo.com
+# PerlSetVar ProtectedSecure               1
+PerlSetVar ProtectedLoginScript          /login-screen
+
+<Location /protected>
+  <IfDefine APACHE1>
+    AuthType Apache::AuthTicket
+    PerlAuthenHandler Apache::AuthTicket->authenticate
+    PerlAuthzHandler  Apache::AuthTicket->authorize
+    require valid-user
+  </IfDefine>
+  AuthName Protected
+</Location>
+
+<Location /login-screen>
+  <IfDefine APACHE1>
+    AuthType Apache::AuthTicket
+    SetHandler perl-script
+    PerlHandler Apache::AuthTicket->login_screen
+  </IfDefine>
+  AuthName Protected
+</Location>
+
+<Location /login>
+  <IfDefine APACHE1>
+    AuthType Apache::AuthTicket
+    SetHandler perl-script
+    PerlHandler Apache::AuthTicket->login
+  </IfDefine>
+  AuthName Protected
+</Location>
+
+<Location /protected/logout>
+  <IfDefine APACHE1>
+    AuthType Apache::AuthTicket
+    SetHandler perl-script
+    PerlHandler Apache::AuthTicket->logout
+  </IfDefine>
+  AuthName Protected
+</Location>
 
 <Directory @ServerRoot@>
   AllowOverride All
 </Directory>
 
-# vim: ts=2 sw=2 ai et
+# vim: ft=apache ts=2 sw=2 ai et

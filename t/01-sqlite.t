@@ -57,10 +57,10 @@ create table t_users (
 );
 
 create table t_secret (
-    s_version int auto_increment primary key,
+    s_version int primary key,
     s_data text
 );
 
-insert into t_secret (s_data) values ('mvkj39vek@#$R*njdea9@#');
+insert into t_secret (s_version, s_data) values (1, 'mvkj39vek@#$R*njdea9@#');
 
 insert into t_users (usrname, passwd) values ('programmer', 'secret');

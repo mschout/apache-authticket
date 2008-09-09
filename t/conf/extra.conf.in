@@ -3,7 +3,7 @@
 </IfDefine>
 
 <IfDefine APACHE1>
-  PerlRequire @ServerRoot@./conf/mp1-startup.pl
+  PerlRequire @ServerRoot@/conf/mp1-startup.pl
 </IfDefine>
 
 <Directory @ServerRoot@>

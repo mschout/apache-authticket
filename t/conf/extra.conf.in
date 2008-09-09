@@ -1,0 +1,13 @@
+<IfDefine APACHE2>
+  PerlSwitches -I@ServerRoot@/lib
+</IfDefine>
+
+<IfDefine APACHE1>
+  PerlRequire @ServerRoot@./conf/mp1-startup.pl
+</IfDefine>
+
+<Directory @ServerRoot@>
+  AllowOverride All
+</Directory>
+
+# vim: ts=2 sw=2 ai et

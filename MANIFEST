@@ -1,12 +1,13 @@
-README
-MANIFEST
-Makefile.PL
+Changes
 lib/Apache/AuthTicket.pm
 lib/Apache2/AuthTicket.pm
-Changes
-TODO
+Makefile.PL
+MANIFEST
+META.yml			Module meta-data (added by MakeMaker)
+README
 sample/apache.conf
 sample/apache2.conf
-sample/pgsql.sql
 sample/mysql.sql
-META.yml                                 Module meta-data (added by MakeMaker)
+sample/pgsql.sql
+t/TEST.PL
+TODO

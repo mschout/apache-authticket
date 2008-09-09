@@ -1,4 +1,6 @@
 use ExtUtils::MakeMaker;
+use lib qw(t/lib);
+use My::Util qw(mod_perl_version);
 
 require 5.6.0;
 
@@ -58,30 +60,6 @@ test : pure_all
 EOF
         };
     }
-}
-
-sub mod_perl_version {
-    eval {
-        require mod_perl2;
-    };
-    unless ($@) {
-        return 2;
-    }
-
-    eval {
-        require mod_perl;
-    };
-    unless ($@) {
-        if ($mod_perl::VERSION >= 1.99) {
-            # mod_perl 2 prior to RC5 (1.99_12 or earlier)
-            die "mod_perl 2.0.0 RC5 or later is required for this module\n";
-        }
-
-        return 1;
-    }
-
-    # assume mod_perl2 is wanted
-    return 2;
 }
 
 # :vim set ts=4 sw=4 ai et

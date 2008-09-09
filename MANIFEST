@@ -3,7 +3,6 @@ MANIFEST
 Makefile.PL
 lib/Apache/AuthTicket.pm
 lib/Apache2/AuthTicket.pm
-test.pl
 Changes
 TODO
 sample/apache.conf

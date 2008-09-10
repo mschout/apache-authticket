@@ -34,4 +34,9 @@ sub hash_for {
     return Digest::MD5::md5_hex(@_);
 }
 
+sub user_agent {
+    my $r = shift;
+    return $ENV{HTTP_USER_AGENT} || $r->headers_in->{'User-Agent'} || '';
+}
+
 1;

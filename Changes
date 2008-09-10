@@ -1,4 +1,4 @@
-Release CURRENT
+Release 0.90_02
     added tests for tampered cookie, CheckIP=0, CheckBrowser=1
     changed config parsing so that boolean values can be specified as any of:
         TRUE : 1, yes, on, true

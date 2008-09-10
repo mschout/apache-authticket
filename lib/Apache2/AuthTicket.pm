@@ -18,7 +18,7 @@ use Apache::AuthTicket::Util;
 
 use constant DEBUGGING => 0;
 
-our $VERSION = '0.90_01';
+our $VERSION = '0.90_02';
 
 # configuration items
 # PerlSetVar FooTicketDB  dbi:Pg:dbname=template1

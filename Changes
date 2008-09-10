@@ -1,5 +1,7 @@
 Release CURRENT
    added test cases to check that cookie fields secure, path, and domain work
+   moved source management to github.com:
+       http://github.com/mschout/apache-authticket/
 
 Release 0.90_01
    o MP2: documentation updates.

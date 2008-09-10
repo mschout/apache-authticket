@@ -6,3 +6,4 @@
 ^\.git/
 ^\.gitignore$
 ^t/TEST$
+^t/db/

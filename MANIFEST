@@ -1,5 +1,6 @@
 Changes
 lib/Apache/AuthTicket.pm
+lib/Apache/AuthTicket/Util.pm
 lib/Apache2/AuthTicket.pm
 Makefile.PL
 MANIFEST
@@ -15,6 +16,7 @@ t/compile.t
 t/conf/extra.conf.in
 t/conf/mp1-startup.pl
 t/htdocs/protected/index.html
+t/htdocs/secure/protected/index.html
 t/lib/My/Util.pm
 t/TEST.PL
 TODO

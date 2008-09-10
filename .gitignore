@@ -10,3 +10,4 @@ t/conf/apache_test_config.pm
 t/conf/*.conf
 t/conf/modperl_inc.pl
 t/conf/modperl_startup.pl
+t/htdocs/index.html

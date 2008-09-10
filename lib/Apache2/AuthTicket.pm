@@ -18,7 +18,7 @@ use Digest::MD5 qw(md5_hex);
 
 use constant DEBUGGING => 0;
 
-our $VERSION = '0.40';
+our $VERSION = '0.90_01';
 
 # configuration items
 # PerlSetVar FooTicketDB  dbi:Pg:dbname=template1

@@ -1,10 +1,10 @@
 <IfDefine APACHE2>
   PerlSwitches -I@ServerRoot@/lib
+  PerlModule Apache2::AuthTicket
 </IfDefine>
 
 <IfDefine APACHE1>
   PerlRequire @ServerRoot@/conf/mp1-startup.pl
-
   PerlModule Apache::AuthTicket
 </IfDefine>
 
@@ -27,34 +27,51 @@ PerlSetVar ProtectedLoginScript          /login-screen
     AuthType Apache::AuthTicket
     PerlAuthenHandler Apache::AuthTicket->authenticate
     PerlAuthzHandler  Apache::AuthTicket->authorize
-    require valid-user
+  </IfDefine>
+  <IfDefine APACHE2>
+    AuthType Apache2::AuthTicket
+    PerlAuthenHandler Apache2::AuthTicket->authenticate
+    PerlAuthzHandler  Apache2::AuthTicket->authorize
   </IfDefine>
   AuthName Protected
+  require valid-user
 </Location>
 
 <Location /login-screen>
+  SetHandler perl-script
   <IfDefine APACHE1>
     AuthType Apache::AuthTicket
-    SetHandler perl-script
     PerlHandler Apache::AuthTicket->login_screen
+  </IfDefine>
+  <IfDefine APACHE2>
+    AuthType Apache2::AuthTicket
+    PerlResponseHandler Apache2::AuthTicket->login_screen
   </IfDefine>
   AuthName Protected
 </Location>
 
 <Location /login>
+  SetHandler perl-script
   <IfDefine APACHE1>
     AuthType Apache::AuthTicket
-    SetHandler perl-script
     PerlHandler Apache::AuthTicket->login
+  </IfDefine>
+  <IfDefine APACHE2>
+    AuthType Apache2::AuthTicket
+    PerlResponseHandler Apache2::AuthTicket->login
   </IfDefine>
   AuthName Protected
 </Location>
 
 <Location /protected/logout>
+  SetHandler perl-script
   <IfDefine APACHE1>
     AuthType Apache::AuthTicket
-    SetHandler perl-script
     PerlHandler Apache::AuthTicket->logout
+  </IfDefine>
+  <IfDefine APACHE2>
+    AuthType Apache2::AuthTicket
+    PerlResponseHandler Apache2::AuthTicket->logout
   </IfDefine>
   AuthName Protected
 </Location>

@@ -1,3 +1,6 @@
+Release CURRENT
+   added test cases to check that cookie fields secure, path, and domain work
+
 Release 0.90_01
    o MP2: documentation updates.
    o add a real test suite using DBD::SQLite backing, Apache::Test and

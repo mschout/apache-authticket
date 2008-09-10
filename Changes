@@ -1,7 +1,16 @@
 Release CURRENT
-   added test cases to check that cookie fields secure, path, and domain work
-   moved source management to github.com:
-       http://github.com/mschout/apache-authticket/
+    added tests for tampered cookie, CheckIP=0, CheckBrowser=1
+    changed config parsing so that boolean values can be specified as any of:
+        TRUE : 1, yes, on, true
+        FALSE: 0, no, off, false
+    added Apache::AuthTicket::Util and moved some internal into it
+    added configuration parameter TicketCheckBrowser which enables checking of
+        the client User-Agent string.
+    added configuration parameter TicketCheckIP so client ip address checks can
+        be disabled.
+    added test cases to check that cookie fields secure, path, and domain work
+    moved source management to github.com:
+        http://github.com/mschout/apache-authticket/
 
 Release 0.90_01
    o MP2: documentation updates.

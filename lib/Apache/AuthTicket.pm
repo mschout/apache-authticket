@@ -10,7 +10,7 @@ use vars qw($VERSION @ISA %DEFAULTS %CONFIG);
 use Apache::Constants qw(REDIRECT OK);
 use Apache::AuthCookie ();
 use DBI ();
-use Digest::MD5 qw(md5_hex);
+use Apache::AuthTicket::Util;
 
 use constant DEBUGGING => 0;
 
@@ -40,7 +40,9 @@ $VERSION = '0.90_01';
     TicketUserTable       => 'users:usrname:passwd',
     TicketPasswordStyle   => 'cleartext',
     TicketSecretTable     => 'ticketsecrets:sec_data:sec_version',
-    TicketLoginHandler    => '/login'
+    TicketLoginHandler    => '/login',
+    TicketCheckIP         => 1,
+    TicketCheckBrowser    => 0
 );
 
 # configured items get dumped in here
@@ -98,9 +100,11 @@ sub _get_config_item {
 
     my $auth_name = $r->auth_name;
 
-    my $value = $r->dir_config("${auth_name}$item") ||
-           $CONFIG{$auth_name}->{$item} ||
-           $DEFAULTS{$item};
+    my $value = Apache::AuthTicket::Util::str_config_value(
+        $r->dir_config("${auth_name}$item"),
+           $CONFIG{$auth_name}->{$item},
+           $DEFAULTS{$item});
+
     warn "returning [$value] for $item" if DEBUGGING;
     return $value;
 }
@@ -388,15 +392,22 @@ sub make_ticket {
     my ($this, $r, $user_name) = @_;
     $this->_log_entry if DEBUGGING;
 
-    my $now      = time();
-    my $expires  = $now + $this->{TicketExpires} * 60;
-    my $ip       = $r->connection->remote_ip;
+    my $now     = time;
+    my $expires = $now + $this->{TicketExpires} * 60;
     my ($secret, $sec_version) = $this->fetch_secret();
 
-    my $hash = md5_hex($secret .
-                   md5_hex(join ':', $secret, $ip, $sec_version, 
-                                      $now, $expires, $user_name)
-               );
+    my @fields = ($secret, $sec_version, $now, $expires, $user_name);
+
+    # only add ip if TicketCheckIP is on.
+    if ($this->_get_config_item($r, 'TicketCheckIP')) {
+        push @fields, $r->connection->remote_ip;
+    }
+
+    if ($this->_get_config_item($r, 'TicketCheckBrowser')) {
+        push @fields, Apache::AuthTicket::Util::user_agent($r);
+    }
+
+    my $hash = Apache::AuthTicket::Util::hash_for(@fields);
 
     my %key = (
         'version' => $sec_version,
@@ -485,7 +496,7 @@ sub verify_ticket {
         return 0;
     }
     unless (($secret, $sec_version) = $this->fetch_secret($ticket{'version'})) {
-        # cat get server secret
+        # can't get server secret
         $r->subprocess_env(AuthTicketReason => 'missing_secret');
         return 0;
     }
@@ -498,11 +509,20 @@ sub verify_ticket {
 
     # create a new hash and verify that it matches the supplied hash
     # (prevents tampering with the cookie)
-    my $ip = $r->connection->remote_ip;
-    my $newhash = md5_hex($secret .
-                      md5_hex(join ':', $secret, $ip,
-                          @ticket{qw(version time expires user)})
-                  );
+    my @fields = ($secret, @ticket{qw(version time expires user)});
+
+    if ($this->_get_config_item($r, 'TicketCheckIP')) {
+        my $ip = $r->connection->remote_ip;
+        push @fields, $ip;
+    }
+
+    if ($this->_get_config_item($r, 'TicketCheckBrowser')) {
+        push @fields, Apache::AuthTicket::Util::user_agent($r);
+    }
+
+    warn "FIELDS: [@fields]\n" if DEBUGGING;
+
+    my $newhash = Apache::AuthTicket::Util::hash_for(@fields);
 
     unless ($newhash eq $ticket{'hash'}) {
         # ticket hash does not match (ticket tampered with?)
@@ -684,7 +704,7 @@ sub _compare_password_md5 {
     my ($this, $clearpass, $saved_pass) = @_;
     $this->_log_entry if DEBUGGING;
 
-    my $test_pass = md5_hex($clearpass);
+    my $test_pass = Apache::AuthTicket::Util::hash_for($clearpass);
     return $test_pass eq $saved_pass;
 }
 
@@ -693,7 +713,7 @@ sub _get_max_secret_version {
 
     my ($secret_table, $secret_field, $secret_version_field) =
         split(/:/, $this->{TicketSecretTable});
-    
+
     my $dbh = $this->dbh;
 
     my $query = qq{
@@ -744,7 +764,7 @@ Apache::AuthTicket - Cookie based access module.
  PerlSetVar FooDomain .foo.com
  PerlSetVar FooSecure 1
  PerlSetVar FooLoginScript /foologinform
- 
+
  <Location /foo>
      AuthType Apache::AuthTicket
      AuthName Foo
@@ -752,14 +772,14 @@ Apache::AuthTicket - Cookie based access module.
      PerlAuthzHandler Apache::AuthTicket->authorize
      require valid-user
  </Location>
- 
+
  <Location /foologinform>
      AuthType Apache::AuthTicket
      AuthName Foo
      SetHandler perl-script
      Perlhandler Apache::AuthTicket->login_screen
  </Location>
- 
+
  <Location /foologin>
      AuthType Apache::AuthTicket
      AuthName Foo
@@ -1003,6 +1023,20 @@ This directive specifys the URL that the user should be sent to after
 they are successfully logged out (this is done via a redirect).
 
 Example: /logged_out_message.html
+
+=item B<TicketCheckIP> (default: on)
+
+This controlls whether or not the client IP address is included in the ticket
+hash.  The default is 'on'.  If you turn this off, then the client ip address
+will not be checked.  It is sometimes not desirable to check the client ip if
+the clients are behind load balancers and subsequent requests might come in
+from a different IP.
+
+=item B<TicketCheckBrowser> (default: off)
+
+This controlls whether or not the C<USER_AGENT> string is included in the
+ticket hash.  This can be used in conjunction with, or instead of
+C<TicketCheckIP> to prevent tampering with the ticket.
 
 =back
 

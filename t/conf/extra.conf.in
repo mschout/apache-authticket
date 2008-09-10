@@ -83,6 +83,8 @@ PerlSetVar ProtectedLoginScript          /login-screen
   PerlSetVar SecTicketLogoutURI      /index.html
   PerlSetVar SecTicketLoginHandler   /secure/login
   PerlSetVar SecTicketIdleTimeout    1
+  PerlSetVar SecTicketCheckIP        Off
+  PerlSetVar SecTicketCheckBrowser   On
   PerlSetVar SecPath                 /secure
   PerlSetVar SecDomain               .local
   PerlSetVar SecSecure               1

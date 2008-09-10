@@ -17,9 +17,6 @@ PerlSetVar ProtectedTicketExpires        15
 PerlSetVar ProtectedTicketLogoutURI      /protected/index.html
 PerlSetVar ProtectedTicketLoginHandler   /login
 PerlSetVar ProtectedTicketIdleTimeout    1
-# PerlSetVar ProtectedPath                 /
-# PerlSetVar ProtectedDomain               .foo.com
-# PerlSetVar ProtectedSecure               1
 PerlSetVar ProtectedLoginScript          /login-screen
 
 <Location /protected>
@@ -74,6 +71,76 @@ PerlSetVar ProtectedLoginScript          /login-screen
     PerlResponseHandler Apache2::AuthTicket->logout
   </IfDefine>
   AuthName Protected
+</Location>
+
+<Location /secure>
+  PerlSetVar SecTicketDb             dbi:SQLite:@ServerRoot@/db/test.db
+  PerlSetVar SecTicketTable          tickets:t_hash:update_ts
+  PerlSetVar SecTicketUserTable      t_users:usrname:passwd
+  PerlSetVar SecTicketPasswordStyle  cleartext
+  PerlSetVar SecTicketSecretTable    t_secret:s_data:s_version
+  PerlSetVar SecTicketExpires        15
+  PerlSetVar SecTicketLogoutURI      /index.html
+  PerlSetVar SecTicketLoginHandler   /secure/login
+  PerlSetVar SecTicketIdleTimeout    1
+  PerlSetVar SecPath                 /secure
+  PerlSetVar SecDomain               .local
+  PerlSetVar SecSecure               1
+  PerlSetVar SecLoginScript          /secure/login-screen
+</Location>
+
+<Location /secure/protected>
+  <IfDefine APACHE1>
+    AuthType Apache::AuthTicket
+    PerlAuthenHandler Apache::AuthTicket->authenticate
+    PerlAuthzHandler  Apache::AuthTicket->authorize
+  </IfDefine>
+  <IfDefine APACHE2>
+    AuthType Apache2::AuthTicket
+    PerlAuthenHandler Apache2::AuthTicket->authenticate
+    PerlAuthzHandler  Apache2::AuthTicket->authorize
+  </IfDefine>
+  AuthName Sec
+  require  valid-user
+</Location>
+
+<Location /secure/login-screen>
+  SetHandler perl-script
+  <IfDefine APACHE1>
+    AuthType Apache::AuthTicket
+    PerlHandler Apache::AuthTicket->login_screen
+  </IfDefine>
+  <IfDefine APACHE2>
+    AuthType Apache2::AuthTicket
+    PerlResponseHandler Apache2::AuthTicket->login_screen
+  </IfDefine>
+  AuthName Sec
+</Location>
+
+<Location /secure/login>
+  SetHandler perl-script
+  <IfDefine APACHE1>
+    AuthType Apache::AuthTicket
+    PerlHandler Apache::AuthTicket->login
+  </IfDefine>
+  <IfDefine APACHE2>
+    AuthType Apache2::AuthTicket
+    PerlResponseHandler Apache2::AuthTicket->login
+  </IfDefine>
+  AuthName Sec
+</Location>
+
+<Location /secure/protected/logout>
+  SetHandler perl-script
+  <IfDefine APACHE1>
+    AuthType Apache::AuthTicket
+    PerlHandler Apache::AuthTicket->logout
+  </IfDefine>
+  <IfDefine APACHE2>
+    AuthType Apache2::AuthTicket
+    PerlResponseHandler Apache2::AuthTicket->logout
+  </IfDefine>
+  AuthName Sec
 </Location>
 
 <Directory @ServerRoot@>

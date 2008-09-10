@@ -4,11 +4,20 @@
 
 use strict;
 use warnings FATAL => 'all';
+use lib qw(t/lib);
 use Apache::Test ':withtestmore';
 use Test::More;
 use Apache::TestRequest qw(GET POST);
 
-plan tests => 33, need_lwp;
+if (not have_module('DBD::SQLite')) {
+    plan skip_all => 'DBD::SQLite is not installed';
+}
+elsif (not have_module('LWP::UserAgent')) {
+    plan skip_all => 'LWP::UserAgent is not installed';
+}
+else {
+    plan tests => 33;
+}
 
 # must match value in SQLite DB
 my $Secret = 'mvkj39vek@#$R*njdea9@#';

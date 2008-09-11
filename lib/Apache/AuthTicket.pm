@@ -227,7 +227,6 @@ sub dbh     { shift->{_DBH} }
 
 sub dbi_connect {
     my ($self) = @_;
-    $self->_log_entry if DEBUGGING;
 
     my $r         = $self->request;
     my $auth_name = $r->auth_name;
@@ -247,7 +246,6 @@ sub dbi_connect {
 # return true if a username exists.
 sub check_user {
     my ($self, $user) = @_;
-    $self->_log_entry if DEBUGGING;
 
     my $dbh = $self->dbh;
 
@@ -279,7 +277,6 @@ sub check_user {
 # return the password associated with a user
 sub get_password {
     my ($self, $user) = @_;
-    $self->_log_entry if DEBUGGING;
 
     my $dbh = $self->dbh;
 
@@ -309,7 +306,6 @@ sub get_password {
 
 sub check_credentials {
     my ($self, $user, $password) = @_;
-    $self->_log_entry if DEBUGGING;
 
     my ($table, $user_field, $pass_field) = 
         split(/:/, $self->{TicketUserTable});
@@ -341,7 +337,6 @@ sub check_credentials {
 #
 sub fetch_secret {
     my ($self, $version) = @_;
-    $self->_log_entry if DEBUGGING;
 
     my $dbh = $self->dbh;
 
@@ -379,7 +374,6 @@ sub fetch_secret {
 #
 sub make_ticket {
     my ($self, $r, $user_name) = @_;
-    $self->_log_entry if DEBUGGING;
 
     my $now     = time;
     my $expires = $now + $self->{TicketExpires} * 60;
@@ -421,7 +415,6 @@ sub make_ticket {
 # invalidate the ticket by expiring the cookie, and delete the hash locally
 sub delete_ticket {
     my ($self, $r) = @_;
-    $self->_log_entry if DEBUGGING;
 
     my $key = $self->key();
     warn "delete_ticket: key $key" if DEBUGGING;
@@ -437,7 +430,6 @@ sub delete_ticket {
 #
 sub check_ticket_format {
     my ($self, %key) = @_;
-    $self->_log_entry if DEBUGGING;
 
     $self->request->log_error("key is ".join(' ', %key)) if DEBUGGING;
     for my $param (qw(version time user expires hash)) {
@@ -464,7 +456,6 @@ sub _pack_ticket {
 #
 sub verify_ticket {
     my ($self, $key) = @_;
-    $self->_log_entry if DEBUGGING;
 
     my $r = $self->request;
 
@@ -583,7 +574,6 @@ sub _ticket_idle_timeout {
 #
 sub save_hash {
     my ($self, $hash) = @_;
-    $self->_log_entry if DEBUGGING;
 
     my ($table, $tick_field, $ts_field) = split(/:/, $self->{TicketTable});
     my $dbh = $self->dbh;
@@ -609,7 +599,6 @@ sub save_hash {
 #
 sub delete_hash {
     my ($self, $hash) = @_;
-    $self->_log_entry if DEBUGGING;
 
     my ($table, $tick_field) = split(/:/, $self->{TicketTable});
     my $dbh = $self->dbh;
@@ -636,7 +625,6 @@ sub delete_hash {
 #
 sub is_hash_valid {
     my ($self, $hash) = @_;
-    $self->_log_entry if DEBUGGING;
 
     my ($table, $tick_field, $ts_field) = split(/:/, $self->{TicketTable});
     my $dbh = $self->dbh;
@@ -660,15 +648,6 @@ sub is_hash_valid {
     }
 
     return (defined $db_hash and $db_hash eq $hash) ? 1 : 0;
-}
-
-# PRIVATE METHODS ############################################################
-
-# logs entry into methods
-sub _log_entry {
-    my ($self) = @_;
-    my ($package, $filename, $line, $subroutine) = caller(1);
-    $self->request->log_error("ENTRY $subroutine [line $line]");
 }
 
 sub _get_max_secret_version {

@@ -1,4 +1,5 @@
 Release 0.90_02
+    moved password check routines out into Util::compare_password()
     removed last of the hard coded SQL in Apache2::AuthTicket
     removed cruft in Apache2::AuthTicket left over from MP1 migration
     changed $this => $self

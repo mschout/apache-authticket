@@ -10,7 +10,7 @@ use Apache2::Connection;
 use Apache2::ServerUtil;
 use DBI ();
 use SQL::Abstract;
-use Apache::AuthTicket::Util;
+use Apache::AuthTicket::Util qw(compare_password);
 
 use constant DEBUGGING => 0;
 
@@ -314,24 +314,11 @@ sub check_credentials {
     # we might add an option for crypt or MD5 style password someday
     my $saved_passwd = $self->get_password($user);
 
-    my $result = 0;
-
     my $style = $self->{TicketPasswordStyle};
 
-    if ($style eq 'cleartext') {
-        $result = $self->_compare_password_cleartext($password, $saved_passwd);
+    unless (compare_password($style, $password, $saved_passwd)) {
+        return (undef, 'password mismatch')
     }
-    elsif ($style eq 'crypt') {
-        $result = $self->_compare_password_crypt($password, $saved_passwd);
-    }
-    elsif ($style eq 'md5') {
-        $result = $self->_compare_password_md5($password, $saved_passwd);
-    }
-    else {
-        die "unknown TicketPasswordStyle: $style\n";
-    }
-
-    return (undef, "password mismatch") unless $result;
 
     # its valid.
     return (1, '');
@@ -657,32 +644,6 @@ sub _log_entry {
     my ($self) = @_;
     my ($package, $filename, $line, $subroutine) = caller(1);
     $self->request->log_error("ENTRY $subroutine [line $line]");
-}
-
-# compare cleartext style passwords
-sub _compare_password_cleartext {
-    my ($self, $clearpass, $saved_pass) = @_;
-    $self->_log_entry if DEBUGGING;
-
-    return $clearpass eq $saved_pass;
-}
-
-# compare crypt() style passwords
-sub _compare_password_crypt {
-    my ($self, $clearpass, $saved_pass) = @_;
-    $self->_log_entry if DEBUGGING;
-
-    my $test_pass = crypt($clearpass, $saved_pass);
-    return $test_pass eq $saved_pass;
-}
-
-# compare md5 style passwords
-sub _compare_password_md5 {
-    my ($self, $clearpass, $saved_pass) = @_;
-    $self->_log_entry if DEBUGGING;
-
-    my $test_pass = Apache::AuthTicket::Util::hash_for($clearpass);
-    return $test_pass eq $saved_pass;
 }
 
 sub _get_max_secret_version {

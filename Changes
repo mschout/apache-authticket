@@ -1,4 +1,6 @@
 Release 0.90_02
+    removed last of the hard coded SQL in Apache2::AuthTicket
+    removed cruft in Apache2::AuthTicket left over from MP1 migration
     changed $this => $self
     added tests for tampered cookie, CheckIP=0, CheckBrowser=1
     changed config parsing so that boolean values can be specified as any of:

@@ -14,7 +14,7 @@ use Apache::AuthTicket::Util qw(compare_password);
 
 use constant DEBUGGING => 0;
 
-our $VERSION = '0.90_02';
+our $VERSION = '0.90';
 
 # configuration items
 # PerlSetVar FooTicketDB  dbi:Pg:dbname=template1

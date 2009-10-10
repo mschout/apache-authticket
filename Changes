@@ -1,9 +1,6 @@
 Release 0.90
     changed LICENSE information in README removed "same terms as perl" and be
         more explicit.
-    added copies of GPL1/Artistic 2.0 in LICENSES
-
-Release 0.90_02
     moved password check routines out into Util::compare_password()
     removed last of the hard coded SQL in Apache2::AuthTicket
     removed cruft in Apache2::AuthTicket left over from MP1 migration
@@ -20,11 +17,9 @@ Release 0.90_02
     added test cases to check that cookie fields secure, path, and domain work
     moved source management to github.com:
         http://github.com/mschout/apache-authticket/
-
-Release 0.90_01
-   o MP2: documentation updates.
-   o add a real test suite using DBD::SQLite backing, Apache::Test and
-     Test::More
+    updated documentation for MP2
+    addedd a real test suite using DBD::SQLite backing, Apache::Test and
+        Test::More
 
 Release 0.40
    o update to use new Apache::Filter API (you need at least 1.012 now)

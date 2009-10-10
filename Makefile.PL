@@ -11,7 +11,6 @@ test_configure();
 my %prereq = (
     'Apache::Test'  => 1.22,
     'DBI'           => 0,
-    'DBD::SQLite'   => 0, # XXX for tests, dev release only
     'Digest::MD5'   => 0,
     'SQL::Abstract' => 0,
     'Test::More'    => 0
@@ -59,6 +58,10 @@ test : pure_all
 »···@echo \*** This test suite requires Apache::Test available from CPAN
 EOF
         };
+    }
+
+    unless (eval { require DBD::SQLite }) {
+        warn "***: You should install DBD::SQLite to do real testing\n";
     }
 }
 

@@ -1,3 +1,8 @@
+Release 0.90
+    changed LICENSE information in README removed "same terms as perl" and be
+        more explicit.
+    added copies of GPL1/Artistic 2.0 in LICENSES
+
 Release 0.90_02
     moved password check routines out into Util::compare_password()
     removed last of the hard coded SQL in Apache2::AuthTicket

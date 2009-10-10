@@ -1140,6 +1140,26 @@ work!
 
 Michael Schout <mschout@gkg.net>
 
+=head1 COPYRIGHT & LICENSE
+
+Copyright 2000-2009 Michael Schout.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of either:
+
+=over 4
+
+=item *
+
+the GNU General Public License as published by the Free Software
+Foundation; either version 1, or (at your option) any later version, or
+
+=item *
+
+the Artistic License version 2.0.
+
+=back
+
 =head1 SEE ALSO
 
 L<perl>, L<mod_perl>, L<Apache>, L<Apache::AuthCookie>

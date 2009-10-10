@@ -28,6 +28,7 @@ else {
 }
 
 WriteMakefile(
+    (MM->can('signature_target') ? (SIGN => 1) : ()),
     NAME          => 'Apache::AuthTicket',
     VERSION_FROM  => 'lib/Apache/AuthTicket.pm',
     AUTHOR        => 'Michael Schout <mschout@gkg.net>',

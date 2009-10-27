@@ -4,6 +4,7 @@ lib/Apache/AuthTicket/Util.pm
 lib/Apache2/AuthTicket.pm
 Makefile.PL
 MANIFEST
+MANIFEST.SKIP
 META.yml			Module meta-data (added by MakeMaker)
 README
 sample/apache.conf
@@ -18,5 +19,6 @@ t/conf/mp1-startup.pl
 t/htdocs/protected/index.html
 t/htdocs/secure/protected/index.html
 t/lib/My/Util.pm
+t/signature.t
 t/TEST.PL
 TODO

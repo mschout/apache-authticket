@@ -1,5 +1,6 @@
 Release 0.91_01
     added SIGNATURE support to make dist
+    added signature test
 
 Release 0.90
     changed LICENSE information in README removed "same terms as perl" and be

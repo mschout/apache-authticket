@@ -5,22 +5,27 @@
 use Test::More;
 use strict;
 
-if (!eval { require Module::Signature; 1 }) {
-        plan skip_all =>
-                "Please install Module::Signature so that you can verify ".
-                        "the integrity of this and other distributions.";
+if (!$ENV{TEST_SIGNATURE}) {
+    plan skip_all =>
+        "Set the environment variable TEST_SIGNATURE to enable this test.";
 }
-elsif ( !-e 'SIGNATURE' ) {
-        plan skip_all => "SIGNATURE file was not found";
+elsif (!eval { require Module::Signature; 1 }) {
+    plan skip_all =>
+        "Please install Module::Signature so that you can verify ".
+        "the integrity of this and other distributions.";
 }
-elsif ( -s 'SIGNATURE' == 0 ) {
-        plan skip_all => "SIGNATURE file was empty";
+elsif (!-e 'SIGNATURE') {
+    plan skip_all => "SIGNATURE file was not found";
+}
+elsif (-s 'SIGNATURE' == 0) {
+    plan skip_all => "SIGNATURE file was empty";
 }
 elsif (!eval { require Socket; Socket::inet_aton('pgp.mit.edu') }) {
-        plan skip_all => "Cannot connect to the keyserver to check module signature";
+    plan skip_all =>
+        "Cannot connect to the keyserver to check module signature";
 }
 else {
-        plan tests => 1;
+    plan tests => 1;
 }
 
 my $ret = Module::Signature::verify();

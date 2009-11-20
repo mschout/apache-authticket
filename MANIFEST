@@ -5,7 +5,6 @@ lib/Apache2/AuthTicket.pm
 Makefile.PL
 MANIFEST
 MANIFEST.SKIP
-META.yml			Module meta-data (added by MakeMaker)
 README
 sample/apache.conf
 sample/apache2.conf

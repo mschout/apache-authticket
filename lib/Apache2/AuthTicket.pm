@@ -430,7 +430,12 @@ sub _unpack_ticket {
 
     return unless defined $key;
 
-    return split(':', $key);
+    my @attrs = split ':', $key;
+
+    # odd number of attrs is not a valid key
+    return unless @attrs % 2 == 0;
+
+    return @attrs;
 }
 
 sub _pack_ticket {

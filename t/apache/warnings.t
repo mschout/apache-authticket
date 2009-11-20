@@ -18,7 +18,7 @@ unless (mod_perl_version() == 1) {
     plan skip_all => 'mod_perl version 1 required for this test';
 }
 else {
-    plan tests => 2;
+    plan tests => 3;
 }
 
 SKIP: {
@@ -26,4 +26,7 @@ SKIP: {
 
     # _unpack_ticket() should not warn with undef key.
     warning_is { Apache::AuthTicket->_unpack_ticket() } undef;
+
+    # unpacking ticket with odd number of elements should not warn
+    warning_is { my %x = Apache::AuthTicket->_unpack_ticket('foo') } undef;
 }

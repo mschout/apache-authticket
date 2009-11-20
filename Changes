@@ -1,6 +1,8 @@
 Release 0.91_01
     added SIGNATURE support to make dist
     added signature test
+    added META_MERGE bugtracker, repository to Makefile.PL
+    cleanup Makefile.PL a bit
 
 Release 0.90
     changed LICENSE information in README removed "same terms as perl" and be

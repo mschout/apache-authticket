@@ -8,36 +8,49 @@ my @CLEAN_FILES = ();
 my $mp_version = mod_perl_version();
 test_configure();
 
-my %prereq = (
-    'Apache::Test'  => 1.22,
-    'DBI'           => 0,
-    'Digest::MD5'   => 0,
-    'SQL::Abstract' => 0,
-    'Test::More'    => 0
-);
-
-if ($mp_version == 2) {
-    # MP2 deps
-    $prereq{'mod_perl2'} = '1.9922';  # mod_perl -> modperl2
-    $prereq{'Apache2::AuthCookie'} = '3.0';
-}
-else {
-    # MP2 deps
-    $prereq{'mod_perl'} = '1.27';
-    $prereq{'Apache::AuthCookie'} = '3.0';
-}
-
-WriteMakefile(
-    (MM->can('signature_target') ? (SIGN => 1) : ()),
+my %conf = (
     NAME          => 'Apache::AuthTicket',
     VERSION_FROM  => 'lib/Apache/AuthTicket.pm',
-    AUTHOR        => 'Michael Schout <mschout@gkg.net>',
-    ABSTRACT      => 'Ticket based authentication system for Apache',
-    PREREQ_PM     => \%prereq,
+    AUTHOR        => 'Michael Schout <mschout@cpan.org>',
+    ABSTRACT_FROM => 'lib/Apache/AuthTicket.pm',
+    PREREQ_PM     => {
+        'Apache::Test'  => 1.22,
+        'DBI'           => 0,
+        'Digest::MD5'   => 0,
+        'SQL::Abstract' => 0,
+        'Test::More'    => 0
+    },
     clean         => {
         FILES => \@CLEAN_FILES
     }
 );
+
+if ($mp_version == 2) {
+    # MP2 deps
+    $conf{PREREQ_PM}{'mod_perl2'} = '1.9922';  # 2.0 RC5 (Apache -> Apache2)
+    $conf{PREREQ_PM}{'Apache2::AuthCookie'} = '3.0';
+}
+else {
+    # MP1 deps
+    $conf{PREREQ_PM}{'mod_perl'} = '1.27';
+    $conf{PREREQ_PM}{'Apache::AuthCookie'} = '3.0';
+}
+
+if (MM->can('signature_target')) {
+    $conf{SIGN} = 1;
+}
+
+if ($ExtUtils::MakeMaker::VERSION >= 6.48) {
+    $conf{META_MERGE} = {
+        no_index => { directory => [qw(t)] },
+        resources => {
+            bugtracker => 'http://rt.cpan.org/NoAuth/Bugs.html?Dist=Apache-AuthTicket',
+            repository => 'http://github.com/mschout/apache-authticket'
+        }
+    };
+}
+
+WriteMakefile(%conf);
 
 sub test_configure {
     if (eval { require Apache::TestMM }) {

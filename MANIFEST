@@ -11,6 +11,8 @@ sample/apache2.conf
 sample/mysql.sql
 sample/pgsql.sql
 t/01-sqlite.t
+t/apache/warnings.t
+t/apache2/warnings.t
 t/auth.t
 t/compile.t
 t/conf/extra.conf.in

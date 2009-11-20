@@ -427,6 +427,9 @@ sub check_ticket_format {
 
 sub _unpack_ticket {
     my ($self, $key) = @_;
+
+    return unless defined $key;
+
     return split(':', $key);
 }
 

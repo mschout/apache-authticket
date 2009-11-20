@@ -3,6 +3,7 @@ Release 0.91_01
     added signature test
     added META_MERGE bugtracker, repository to Makefile.PL
     cleanup Makefile.PL a bit
+    fixed uninitialized warning in _unpack_ticket() [51138]
 
 Release 0.90
     changed LICENSE information in README removed "same terms as perl" and be

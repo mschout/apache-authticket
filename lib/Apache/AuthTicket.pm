@@ -958,6 +958,10 @@ This directive specifys the number of minutes that tickets should remain
 valid for.  If a user exceeds this limit, they will be forced to log in
 again.
 
+This should not be confused with the inherited AuthCookie setting C<Expire>,
+which is the I<cookie> expiration time.  C<TicketExpires> controls the
+expiration of the ticket, not the cookie.
+
 =item B<TicketIdleTimeout>
 
 This directive specifys the number of minutes of inactivity before a ticket

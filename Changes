@@ -5,6 +5,8 @@ Release 0.91_01
     cleanup Makefile.PL a bit
     fixed uninitialized warning in _unpack_ticket() [51138]
     fixed Odd number of elements warning in _unpack_ticket() [51136]
+    POD: explain difference between "TicketExpires" and inherited AuthCookie
+        "Expire" directive.
 
 Release 0.90
     changed LICENSE information in README removed "same terms as perl" and be

@@ -1139,10 +1139,6 @@ Thanks to Ken Williams for his wonderful I<Apache::AuthCookie> module, and for
 putting in the necessary changes to I<Apache::AuthCookie> to make this module
 work!
 
-=head1 AUTHOR
-
-Michael Schout <mschout@gkg.net>
-
 =head1 SEE ALSO
 
 L<perl>, L<mod_perl>, L<Apache>, L<Apache::AuthCookie>

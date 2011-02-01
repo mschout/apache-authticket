@@ -5,8 +5,7 @@
 use strict;
 use warnings FATAL => 'all';
 use lib qw(t/lib);
-use Apache::Test ':withtestmore';
-use Test::More;
+use Apache::Test '-withtestmore';
 use Apache::TestRequest qw(GET POST);
 
 if (not have_module('DBD::SQLite')) {

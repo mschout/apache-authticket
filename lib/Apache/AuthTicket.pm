@@ -1,7 +1,9 @@
 package Apache::AuthTicket;
 
+# ABSTRACT: Cookie Based Access and Authorization Module
+
 use strict;
-use vars qw($VERSION @ISA %DEFAULTS %CONFIG);
+use vars qw(@ISA %DEFAULTS %CONFIG);
 
 use Apache::Constants qw(REDIRECT OK);
 use Apache::AuthCookie ();
@@ -13,8 +15,6 @@ use constant DEBUGGING => 0;
 #use Data::Dumper;
 
 @ISA = qw(Apache::AuthCookie);
-
-$VERSION = '0.90';
 
 # configuration items
 # PerlSetVar FooTicketDB  dbi:Pg:dbname=template1
@@ -691,10 +691,6 @@ sub _get_max_secret_version {
 
 __END__
 
-=head1 NAME
-
-Apache::AuthTicket - Cookie based access module.
-
 =head1 SYNOPSIS
 
  # in httpd.conf
@@ -1134,11 +1130,6 @@ TicketDBUser, and TicketDBPassword in httpd.conf.
 
 =back
 
-=head1 BUGS
-
-None known, but that doesn't mean there aren't any.  If you find a bug in this
-software, please let me know.
-
 =head1 CREDITS
 
 The idea for this module came from the Ticket Access system in the eagle book,
@@ -1151,26 +1142,6 @@ work!
 =head1 AUTHOR
 
 Michael Schout <mschout@gkg.net>
-
-=head1 COPYRIGHT & LICENSE
-
-Copyright 2000-2009 Michael Schout.
-
-This program is free software; you can redistribute it and/or modify it under
-the terms of either:
-
-=over 4
-
-=item *
-
-the GNU General Public License as published by the Free Software
-Foundation; either version 1, or (at your option) any later version, or
-
-=item *
-
-the Artistic License version 2.0.
-
-=back
 
 =head1 SEE ALSO
 

@@ -11,8 +11,6 @@ test_configure();
 my %conf = (
     NAME          => 'Apache::AuthTicket',
     VERSION_FROM  => 'lib/Apache/AuthTicket.pm',
-    AUTHOR        => 'Michael Schout <mschout@cpan.org>',
-    ABSTRACT_FROM => 'lib/Apache/AuthTicket.pm',
     PREREQ_PM     => {
         'Apache::Test'  => 1.22,
         'DBI'           => 0,
@@ -43,10 +41,6 @@ if (MM->can('signature_target')) {
 if ($ExtUtils::MakeMaker::VERSION >= 6.48) {
     $conf{META_MERGE} = {
         no_index => { directory => [qw(t)] },
-        resources => {
-            bugtracker => 'http://rt.cpan.org/NoAuth/Bugs.html?Dist=Apache-AuthTicket',
-            repository => 'http://github.com/mschout/apache-authticket'
-        }
     };
 }
 

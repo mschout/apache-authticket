@@ -1,5 +1,6 @@
-# internal utility functions for Apache::AuthTicket and Apache2::AuthTicket
 package Apache::AuthTicket::Util;
+
+# ABSTRACT: Internal Utility Functions for Apache::AuthTicket and Apache2::AuthTicket
 
 use strict;
 use base 'Exporter';
@@ -66,3 +67,5 @@ sub compare_password {
 }
 
 1;
+
+__END__

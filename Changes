@@ -1,3 +1,6 @@
+{{$NEXT}}
+    MP1: synchronize with MP2 version.
+
 Release 0.91_01
     added SIGNATURE support to make dist
     added signature test

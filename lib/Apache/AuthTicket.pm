@@ -3,18 +3,15 @@ package Apache::AuthTicket;
 # ABSTRACT: Cookie Based Access and Authorization Module
 
 use strict;
-use vars qw(@ISA %DEFAULTS %CONFIG);
+use base 'Apache::AuthCookie';
+use vars qw(%DEFAULTS %CONFIG);
 
 use Apache::Constants qw(REDIRECT OK);
-use Apache::AuthCookie ();
 use DBI ();
+use SQL::Abstract;
 use Apache::AuthTicket::Util qw(compare_password);
 
 use constant DEBUGGING => 0;
-
-#use Data::Dumper;
-
-@ISA = qw(Apache::AuthCookie);
 
 # configuration items
 # PerlSetVar FooTicketDB  dbi:Pg:dbname=template1
@@ -72,7 +69,8 @@ sub authen_cred {
     my ($result, $msg) = $self->check_credentials($user, $pass);
     if ($result) {
         return $self->make_ticket($r, $user);
-    } else {
+    }
+    else {
         return undef;
     }
 }
@@ -91,6 +89,16 @@ sub authen_ses_key {
     }
 }
 
+sub sql {
+    my $self = shift;
+
+    unless (defined $self->{sql}) {
+        $self->{sql} = new SQL::Abstract;
+    }
+
+    return $self->{sql};
+}
+
 sub _get_config_item {
     my ($class, $r, $item) = @_;
 
@@ -98,8 +106,8 @@ sub _get_config_item {
 
     my $value = Apache::AuthTicket::Util::str_config_value(
         $r->dir_config("${auth_name}$item"),
-           $CONFIG{$auth_name}->{$item},
-           $DEFAULTS{$item});
+        $CONFIG{$auth_name}->{$item},
+        $DEFAULTS{$item});
 
     warn "returning [$value] for $item" if DEBUGGING;
     return $value;
@@ -147,10 +155,6 @@ sub make_login_screen {
         q{<BODY bgcolor="#ffffff">},
         q{<H1>Please Log In</H1>}
     );
-
-    #if (defined $msg and $msg) {
-    #    $r->print(qq{<h2><font color="#ff0000">Error: $msg</font></h2>});
-    #}
 
     $r->print(
         qq{<form method="post" action="$action">},
@@ -204,14 +208,12 @@ sub new {
 
     $self->init($r);
 
-    #warn "After init I look like this\n";
-    #warn Dumper($self), "\n";
-
     return $self;
 }
 
 sub init {
     my ($self, $r) = @_;
+
     $self->{_DBH} = $self->dbi_connect;
 
     my $auth_name = $r->auth_name;
@@ -226,7 +228,7 @@ sub request { shift->{_REQUEST} }
 sub dbh     { shift->{_DBH} }
 
 sub dbi_connect {
-    my ($self) = @_;
+    my $self = shift;
 
     my $r         = $self->request;
     my $auth_name = $r->auth_name;
@@ -252,17 +254,12 @@ sub check_user {
     my $rows = 0;
 
     my ($table, $user_field) = split(/:/, $self->{TicketUserTable});
-    my $query = qq{
-        SELECT  COUNT(*)
-        FROM    $table
-        WHERE   $user_field = ?
-    };
+
+    my ($stmt, @bind) =
+        $self->sql->select($table, 'COUNT(*)', {$user_field => $user});
 
     eval {
-        my $sth = $dbh->prepare($query);
-        $sth->execute($user);
-        $sth->bind_columns(\$rows);
-        $sth->fetch;
+        ($rows) = $dbh->selectrow_array($stmt, undef, @bind);
     };
     if ($@) {
         $dbh->rollback; 
@@ -283,18 +280,12 @@ sub get_password {
     my ($table, $user_field, $passwd_field) = 
         split(/:/, $self->{TicketUserTable});
 
-    my $query = qq{
-        SELECT  $passwd_field
-        FROM    $table
-        WHERE   $user_field = ?
-    };
+    my ($stmt, @bind) =
+        $self->sql->select($table, [$passwd_field], {$user_field => $user});
 
     my $passwd = undef;
     eval {
-        my $sth = $dbh->prepare($query);
-        $sth->execute($user);
-        $sth->bind_columns(\$passwd);
-        $sth->fetch;
+        ($passwd) = $dbh->selectrow_array($stmt, undef, @bind);
     };
     if ($@) {
         $dbh->rollback;
@@ -319,12 +310,10 @@ sub check_credentials {
     # we might add an option for crypt or MD5 style password someday
     my $saved_passwd = $self->get_password($user);
 
-    my $result = 0;
-
     my $style = $self->{TicketPasswordStyle};
 
     unless (compare_password($style, $password, $saved_passwd)) {
-        return (undef, "password mismatch");
+        return (undef, 'password mismatch')
     }
 
     # its valid.
@@ -347,18 +336,14 @@ sub fetch_secret {
         $version = $self->_get_max_secret_version;
     }
 
-    my $query = qq{
-        SELECT  $secret_field, $secret_version_field
-        FROM    $secret_table
-        WHERE   $secret_version_field = ?
-    };
+    # generate SQL
+    my @fields = ($secret_field, $secret_version_field);
+    my %where = ( $secret_version_field => $version );
+    my ($stmt, @bind) = $self->sql->select($secret_table, \@fields, \%where);
 
     my ($secret, $ret_version) = (undef, undef);
     eval {
-        my $sth = $dbh->prepare($query);
-        $sth->execute($version);
-        $sth->bind_columns(\$secret, \$ret_version);
-        $sth->fetch;
+        ($secret, $ret_version) = $dbh->selectrow_array($stmt, undef, @bind);
     };
     if ($@) {
         $dbh->rollback;
@@ -418,6 +403,7 @@ sub delete_ticket {
 
     my $key = $self->key();
     warn "delete_ticket: key $key" if DEBUGGING;
+
     my %ticket = $self->_unpack_ticket($key);
 
     $self->delete_hash($ticket{'hash'});
@@ -497,6 +483,7 @@ sub verify_ticket {
 
     # create a new hash and verify that it matches the supplied hash
     # (prevents tampering with the cookie)
+
     my @fields = ($secret, @ticket{qw(version time expires user)});
 
     if ($self->_get_config_item($r, 'TicketCheckIP')) {
@@ -534,22 +521,18 @@ sub _update_ticket_timestamp {
 
     my ($table, $tick_field, $ts_field) = split(':', $self->{TicketTable});
 
-    my $query = qq{
-        UPDATE $table
-        SET    $ts_field = ?
-        WHERE  $tick_field = ?
-    };
+    my ($query, @bind) = $self->sql->update($table,
+        {$ts_field   => $time},
+        {$tick_field => $hash});
 
     eval {
-        my $sth = $dbh->prepare($query);
-        $sth->execute($time, $hash);
+        my $sth = $dbh->do($query, undef, @bind);
         $dbh->commit unless $dbh->{AutoCommit};
     };
     if ($@) {
         $dbh->rollback;
         die $@;
     }
-
 }
 
 # boolean _ticket_idle_timeout(String hash)
@@ -572,7 +555,8 @@ sub _ticket_idle_timeout {
     if ( ($time - $db_time)  > $idle ) {
         # its timed out
         return 1;
-    } else {
+    }
+    else {
         return 0;
     }
 }
@@ -584,16 +568,15 @@ sub save_hash {
     my ($self, $hash) = @_;
 
     my ($table, $tick_field, $ts_field) = split(/:/, $self->{TicketTable});
+
+    my ($query, @bind) = $self->sql->insert($table, {
+        $tick_field => $hash,
+        $ts_field   => $self->request->request_time });
+
     my $dbh = $self->dbh;
 
-    my $query = qq{
-        INSERT INTO $table ($tick_field, $ts_field)
-        VALUES (?, ?)
-    };
-
     eval {
-        my $sth = $dbh->prepare($query);
-        $sth->execute($hash, $self->request->request_time);
+        my $sth = $dbh->do($query, undef, @bind);
         $dbh->commit unless $dbh->{AutoCommit};
     };
     if ($@) {
@@ -609,17 +592,13 @@ sub delete_hash {
     my ($self, $hash) = @_;
 
     my ($table, $tick_field) = split(/:/, $self->{TicketTable});
+
+    my ($query, @bind) = $self->sql->delete($table, { $tick_field => $hash });
+
     my $dbh = $self->dbh;
 
-    my $query = qq{
-        DELETE
-        FROM    $table
-        WHERE   $tick_field = ?
-    };
-
     eval {
-        my $sth = $dbh->prepare($query);
-        $sth->execute($hash);
+        my $sth = $dbh->do($query, undef, @bind);
         $dbh->commit unless $dbh->{AutoCommit} || 0;
     };
     if ($@) {
@@ -635,19 +614,15 @@ sub is_hash_valid {
     my ($self, $hash) = @_;
 
     my ($table, $tick_field, $ts_field) = split(/:/, $self->{TicketTable});
-    my $dbh = $self->dbh;
 
-    my $query = qq{
-        SELECT  $tick_field, $ts_field
-        FROM    $table
-        WHERE   $tick_field = ?
-    };
+    my ($query, @bind) = $self->sql->select($table, [$tick_field, $ts_field], 
+        { $tick_field => $hash });
+
+    my $dbh = $self->dbh;
 
     my ($db_hash, $ts) = (undef, undef);
     eval {
-        my $sth = $dbh->prepare($query);
-        $sth->execute($hash);
-        ($db_hash, $ts) = $sth->fetchrow_array;
+        ($db_hash, $ts) = $dbh->selectrow_array($query, undef, @bind);
         $self->{DBTicketTimeStamp} = $ts;   # cache for later use.
     };
     if ($@) {
@@ -664,20 +639,13 @@ sub _get_max_secret_version {
     my ($secret_table, $secret_field, $secret_version_field) =
         split(/:/, $self->{TicketSecretTable});
 
-    my $dbh = $self->dbh;
+    my ($query) = $self->sql->select($secret_table, ["MAX($secret_version_field)"]);
 
-    my $query = qq{
-        SELECT MAX($secret_version_field)
-        FROM   $secret_table
-    };
+    my $dbh = $self->dbh;
 
     my $version = undef;
     eval {
-        my $sth = $dbh->prepare($query);
-        $sth->execute;
-        $sth->bind_columns(\$version);
-        $sth->fetch;
-        $sth->finish;
+        ($version) = $dbh->selectrow_array($query);
     };
     if ($@) {
         $dbh->rollback;

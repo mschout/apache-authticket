@@ -21,4 +21,5 @@
 ^t/logs/error_log$
 ^t/logs/httpd.pid$
 ^t/TEST$
+^t/SMOKE$
 

@@ -1,7 +1,4 @@
 {{$NEXT}}
-    MP1: synchronize with MP2 version.
-
-Release 0.91_01
     added SIGNATURE support to make dist
     added signature test
     added META_MERGE bugtracker, repository to Makefile.PL
@@ -10,6 +7,8 @@ Release 0.91_01
     fixed Odd number of elements warning in _unpack_ticket() [51136]
     POD: explain difference between "TicketExpires" and inherited AuthCookie
         "Expire" directive.
+    MP1: synchronize with MP2 version.
+    Abstract common MP1/MP2 code into ::Base package.
 
 Release 0.90
     changed LICENSE information in README removed "same terms as perl" and be

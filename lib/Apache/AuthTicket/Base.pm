@@ -45,17 +45,12 @@ our %CONFIG = ();
 sub configure {
     my ($class, $auth_name, $conf) = @_;
 
-    $class->push_handler(PerlChildInitHandler =>
-        sub {
-            for (keys %$conf) {
-                die "bad configuration parameter $_" 
-                    unless defined $DEFAULTS{$_};
-                $CONFIG{$auth_name}->{$_} = $conf->{$_};
-            }
-            #warn 'After config. %CONFIGURE looks like this\n',
-            #     Dumper(\%CONFIG);
+    $class->push_handler(PerlChildInitHandler => sub {
+        for (keys %$conf) {
+            die "bad configuration parameter $_" unless defined $DEFAULTS{$_};
+            $CONFIG{$auth_name}->{$_} = $conf->{$_};
         }
-    );
+    });
 }
 
 # check credentials and return a session key if valid
@@ -81,10 +76,12 @@ sub authen_ses_key {
     my ($class, $r, $session_key) = @_;
 
     my $self = $class->new($r);
+
     if ($self->verify_ticket($session_key)) {
         my %ticket = $self->_unpack_ticket($session_key);
         return $ticket{user};
-    } else {
+    }
+    else {
         return undef;
     }
 }
@@ -642,15 +639,6 @@ sub _get_max_secret_version {
     return $version;
 }
 
-# subclass must provide
-sub push_handler { die "unimplemented" }
-
-# subclass must provide
-sub set_user { die "unimplemented" }
-
-# subclass must provide
-sub apache_const { die "unimplemented" }
-
 # compute a hash for the given values.
 sub hash_for {
     my $self = shift;
@@ -712,6 +700,15 @@ sub str_config_value {
 
     return;
 }
+
+# subclass must provide
+sub push_handler { die "unimplemented" }
+
+# subclass must provide
+sub set_user { die "unimplemented" }
+
+# subclass must provide
+sub apache_const { die "unimplemented" }
 
 1;
 

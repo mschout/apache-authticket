@@ -56,13 +56,11 @@ sub configure {
 # check credentials and return a session key if valid
 # return undef if invalid
 sub authen_cred {
-    my ($class, $r, @cred) = @_;
+    my ($class, $r, $user, $pass) = @_;
 
     my $self = $class->new($r);
 
-    my ($user, $pass) = @cred;
-    my ($result, $msg) = $self->check_credentials($user, $pass);
-    if ($result) {
+    if ($self->check_credentials($user, $pass)) {
         return $self->make_ticket($r, $user);
     }
     else {
@@ -225,81 +223,36 @@ sub dbi_connect {
     return $dbh;
 }
 
-# boolean check_user(String username)
-#
-# return true if a username exists.
-sub check_user {
-    my ($self, $user) = @_;
-
-    my $dbh = $self->dbh;
-
-    my $rows = 0;
-
-    my ($table, $user_field) = split(/:/, $self->{TicketUserTable});
-
-    my ($stmt, @bind) =
-        $self->sql->select($table, 'COUNT(*)', {$user_field => $user});
-
-    eval {
-        ($rows) = $dbh->selectrow_array($stmt, undef, @bind);
-    };
-    if ($@) {
-        $dbh->rollback; 
-        die $@;
-    }
-
-    return $rows;
-}
-
-# String get_passwd(String username)
-#
-# return the password associated with a user
-sub get_password {
-    my ($self, $user) = @_;
-
-    my $dbh = $self->dbh;
-
-    my ($table, $user_field, $passwd_field) = 
-        split(/:/, $self->{TicketUserTable});
-
-    my ($stmt, @bind) =
-        $self->sql->select($table, [$passwd_field], {$user_field => $user});
-
-    my $passwd = undef;
-    eval {
-        ($passwd) = $dbh->selectrow_array($stmt, undef, @bind);
-    };
-    if ($@) {
-        $dbh->rollback;
-        die $@;
-    }
-
-    return $passwd;
-}
-
 sub check_credentials {
     my ($self, $user, $password) = @_;
 
     my ($table, $user_field, $pass_field) = 
-        split(/:/, $self->{TicketUserTable});
+        split ':', $self->{TicketUserTable};
 
-    my $dbh = $self->dbh;
+    my ($stmt, @bind) =
+        $self->sql->select($table, $pass_field, {$user_field => $user});
 
-    return (undef, "Can't open database: $DBI::errstr") unless $dbh;
+    my ($db_pass) = eval {
+        $self->dbh->selectrow_array($stmt, undef, @bind);
+    };
+    if ($@) {
+        $self->dbh->rollback;
+        return 0;
+    }
 
-    return (undef, "invalid account") unless $self->check_user($user);
-
-    # we might add an option for crypt or MD5 style password someday
-    my $saved_passwd = $self->get_password($user);
+    unless (defined $db_pass) {
+        # user not in database
+        return 0;
+    }
 
     my $style = $self->{TicketPasswordStyle};
 
-    unless ($self->compare_password($style, $password, $saved_passwd)) {
-        return (undef, 'password mismatch')
+    if ($self->compare_password($style, $password, $db_pass)) {
+        return 1;
     }
-
-    # its valid.
-    return (1, '');
+    else {
+        return 0;
+    }
 }
 
 #

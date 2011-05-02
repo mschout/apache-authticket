@@ -9,6 +9,7 @@
         "Expire" directive.
     MP1: synchronize with MP2 version.
     Abstract common MP1/MP2 code into ::Base package.
+    Move ::Util code into ::Base
 
 Release 0.90
     changed LICENSE information in README removed "same terms as perl" and be

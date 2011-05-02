@@ -3,11 +3,10 @@ package Apache::AuthTicket::Base;
 # ABSTRACT: Common methods for all Apache::AuthTicket versions.
 
 use strict;
-
-use DBI ();
+use DBI;
 use SQL::Abstract;
 use MRO::Compat;
-use Apache::AuthTicket::Util qw(compare_password);
+use Digest::MD5;
 use ModPerl::VersionUtil;
 
 use constant DEBUGGING => 0;
@@ -102,7 +101,7 @@ sub _get_config_item {
 
     my $auth_name = $r->auth_name;
 
-    my $value = Apache::AuthTicket::Util::str_config_value(
+    my $value = $class->str_config_value(
         $r->dir_config("${auth_name}$item"),
         $CONFIG{$auth_name}->{$item},
         $DEFAULTS{$item});
@@ -308,7 +307,7 @@ sub check_credentials {
 
     my $style = $self->{TicketPasswordStyle};
 
-    unless (compare_password($style, $password, $saved_passwd)) {
+    unless ($self->compare_password($style, $password, $saved_passwd)) {
         return (undef, 'password mismatch')
     }
 
@@ -368,10 +367,10 @@ sub make_ticket {
     }
 
     if ($self->_get_config_item($r, 'TicketCheckBrowser')) {
-        push @fields, Apache::AuthTicket::Util::user_agent($r);
+        push @fields, $self->user_agent;
     }
 
-    my $hash = Apache::AuthTicket::Util::hash_for(@fields);
+    my $hash = $self->hash_for(@fields);
 
     my %key = (
         'version' => $sec_version,
@@ -488,12 +487,12 @@ sub verify_ticket {
     }
 
     if ($self->_get_config_item($r, 'TicketCheckBrowser')) {
-        push @fields, Apache::AuthTicket::Util::user_agent($r);
+        push @fields, $self->user_agent;
     }
 
     warn "FIELDS: [@fields]\n" if DEBUGGING;
 
-    my $newhash = Apache::AuthTicket::Util::hash_for(@fields);
+    my $newhash = $self->hash_for(@fields);
 
     unless ($newhash eq $ticket{'hash'}) {
         # ticket hash does not match (ticket tampered with?)
@@ -653,7 +652,76 @@ sub _get_max_secret_version {
     return $version;
 }
 
+# subclass must provide
+sub push_handler { die "unimplemented" }
+
+# subclass must provide
 sub set_user { die "unimplemented" }
+
+# subclass must provide
+sub apache_const { die "unimplemented" }
+
+# compute a hash for the given values.
+sub hash_for {
+    my $self = shift;
+
+    return Digest::MD5::md5_hex(@_);
+}
+
+# get clients user agent string
+sub user_agent {
+    my $self = shift;
+
+    return $ENV{HTTP_USER_AGENT}
+        || $self->request->headers_in->get('User-Agent')
+        || '';
+}
+
+sub compare_password {
+    my ($self, $style, $check, $expected) = @_;
+
+    if ($style eq 'crypt') {
+        return crypt($check, $expected) eq $expected;
+    }
+    elsif ($style eq 'cleartext') {
+        return $check eq $expected;
+    }
+    elsif ($style eq 'md5') {
+        return Digest::MD5::md5_hex($check) eq $expected;
+    }
+    else {
+        die "unrecognized password style '$style'";
+    }
+
+    return 0;
+}
+
+# convert recognized true/false aliases to boolean. Multiple strings may be passed and the
+# first defined one will be converted.  If none of the strings are defined,
+# undef is returned.
+sub str_config_value {
+    my $self = shift;
+
+    for my $value (@_) {
+        next unless defined $value;
+
+        my $test = lc $value;
+
+        # convert booleans to 1/0
+        if ($test =~ /^(?:1|on|yes|true)$/) {
+            return 1;
+        }
+        elsif ($test =~ /^(?:0|off|no|false)$/) {
+            return 0;
+        }
+        else {
+            # return value unchanged.
+            return $value;
+        }
+    }
+
+    return;
+}
 
 1;
 

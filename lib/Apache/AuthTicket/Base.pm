@@ -3,6 +3,7 @@ package Apache::AuthTicket::Base;
 # ABSTRACT: Common methods for all Apache::AuthTicket versions.
 
 use strict;
+use base qw(Class::Accessor::Fast);
 use DBI;
 use SQL::Abstract;
 use MRO::Compat;
@@ -10,6 +11,8 @@ use Digest::MD5;
 use ModPerl::VersionUtil;
 
 use constant DEBUGGING => 0;
+
+__PACKAGE__->mk_accessors(qw(request _dbh _sql));
 
 # configuration items
 # PerlSetVar FooTicketDB  dbi:Pg:dbname=template1
@@ -89,11 +92,11 @@ sub authen_ses_key {
 sub sql {
     my $self = shift;
 
-    unless (defined $self->{sql}) {
-        $self->{sql} = new SQL::Abstract;
+    unless (defined $self->_sql) {
+        $self->_sql( SQL::Abstract->new );
     }
 
-    return $self->{sql};
+    $self->_sql;
 }
 
 sub _get_config_item {
@@ -195,32 +198,19 @@ sub logout ($$) {
 ##################### END STATIC METHODS ###########################3
 sub new {
     my ($class, $r) = @_;
-    $class = ref $class || $class;
 
-    my $self = bless {
-        _REQUEST => $r
-    }, $class;
-
-    $self->init($r);
-
-    return $self;
+    return $class->SUPER::new({request => $r});
 }
 
-sub init {
-    my ($self, $r) = @_;
+sub dbh {
+    my $self = shift;
 
-    $self->{_DBH} = $self->dbi_connect;
+    unless (defined $self->_dbh) {
+        $self->_dbh($self->dbi_connect);
+    }
 
-    my $auth_name = $r->auth_name;
-
-    # initialize configuration
-    map {
-        $self->{$_} = $self->_get_config_item($r, $_);
-    } keys %DEFAULTS;
+    $self->_dbh;
 }
-
-sub request { shift->{_REQUEST} }
-sub dbh     { shift->{_DBH} }
 
 sub dbi_connect {
     my $self = shift;

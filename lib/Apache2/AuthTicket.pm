@@ -3,11 +3,7 @@ package Apache2::AuthTicket;
 # ABSTRACT: Cookie Based Access and Authorization Module
 
 use strict;
-
-# NOTE: order matters here. AuthCooie must be after ::Base because of logout()
-# redispatching
 use base qw(Apache::AuthTicket::Base Apache2::AuthCookie);
-
 use Apache2::Const;
 use Apache2::RequestIO;
 use Apache2::Connection;
@@ -29,10 +25,7 @@ sub set_user {
 sub apache_const {
     my ($self, $const) = @_;
 
-    no strict 'refs';
-    my $glob = "Apache2::Const::$const";
-
-    return &$glob;
+    return *{"Apache2::Const::$const"}->();
 }
 
 1;
@@ -483,12 +476,8 @@ TicketDBUser, and TicketDBPassword in httpd.conf.
 The idea for this module came from the Ticket Access system in the eagle book,
 along with several ideas discussed on the mod_perl mailing list.
 
-Thanks to Ken Williams for his wonderful I<Apache2::AuthCookie> module, and for
-putting in the necessary changes to I<Apache2::AuthCookie> to make this module
-work!
-
 =head1 SEE ALSO
 
-L<perl>, L<mod_perl>, L<Apache>, L<Apache2::AuthCookie>
+L<perl>, L<mod_perl>, L<Apache2::AuthCookie>
 
 =cut

@@ -3,16 +3,10 @@ package Apache::AuthTicket;
 # ABSTRACT: Cookie Based Access and Authorization Module
 
 use strict;
-
-# NOTE: order matters here. AuthCooie must be after ::Base because of logout()
-# redispatching
 use base qw(Apache::AuthTicket::Base Apache::AuthCookie);
-
 use Apache::Constants;
 use Apache::Log;
 use MRO::Compat;
-
-use constant DEBUGGING => 0;
 
 sub push_handler {
     my ($class, $phase, $handler) = @_;
@@ -40,8 +34,7 @@ sub apache_const {
     my ($self, $const) = @_;
     no strict 'refs';
 
-    my $ref = *{"Apache::Constants::$const"};
-    return &$ref;
+    return *{"Apache::Constants::$const"}->();
 }
 
 1;

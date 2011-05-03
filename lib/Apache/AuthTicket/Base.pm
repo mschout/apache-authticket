@@ -229,8 +229,7 @@ sub dbi_connect {
 sub check_credentials {
     my ($self, $user, $password) = @_;
 
-    my ($table, $user_field, $pass_field) = 
-        split ':', $self->get_config('TicketUserTable');
+    my ($table, $user_field, $pass_field) = $self->user_table;
 
     my ($stmt, @bind) =
         $self->sql->select($table, $pass_field, {$user_field => $user});
@@ -459,7 +458,7 @@ sub _update_ticket_timestamp {
     my $time = $self->request->request_time;
     my $dbh = $self->dbh;
 
-    my ($table, $tick_field, $ts_field) = split(':', $self->get_config('TicketTable'));
+    my ($table, $tick_field, $ts_field) = $self->ticket_table;
 
     my ($query, @bind) = $self->sql->update($table,
         {$ts_field   => $time},
@@ -507,7 +506,7 @@ sub _ticket_idle_timeout {
 sub save_hash {
     my ($self, $hash) = @_;
 
-    my ($table, $tick_field, $ts_field) = split(/:/, $self->get_config('TicketTable'));
+    my ($table, $tick_field, $ts_field) = $self->ticket_table;
 
     my ($query, @bind) = $self->sql->insert($table, {
         $tick_field => $hash,
@@ -531,7 +530,7 @@ sub save_hash {
 sub delete_hash {
     my ($self, $hash) = @_;
 
-    my ($table, $tick_field) = split(/:/, $self->get_config('TicketTable'));
+    my ($table, $tick_field) = $self->ticket_table;
 
     my ($query, @bind) = $self->sql->delete($table, { $tick_field => $hash });
 
@@ -553,7 +552,7 @@ sub delete_hash {
 sub is_hash_valid {
     my ($self, $hash) = @_;
 
-    my ($table, $tick_field, $ts_field) = split(/:/, $self->get_config('TicketTable'));
+    my ($table, $tick_field, $ts_field) = $self->ticket_table;
 
     my ($query, @bind) = $self->sql->select($table, [$tick_field, $ts_field], 
         { $tick_field => $hash });
@@ -655,6 +654,20 @@ sub str_config_value {
     }
 
     return;
+}
+
+# return: ($table, hash_field, ts_field)
+sub ticket_table {
+    my $self = shift;
+
+    return split ':', $self->get_config('TicketTable');
+}
+
+# return: (table, user_field, $pass_field)
+sub user_table {
+    my $self = shift;
+
+    return split ':', $self->get_config('TicketUserTable');
 }
 
 # subclass must provide

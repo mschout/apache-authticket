@@ -12,7 +12,8 @@
     Move ::Util code into ::Base
     use Class::Accessor::Fast to generate accessors
     combine user/pass lookup into single SQL query (one less query per request)
-    add get_config() for fetching config values
+    added get_config() for fetching config values
+    added user_table(), ticket_table() methods to simplify table lookups
 
 Release 0.90
     changed LICENSE information in README removed "same terms as perl" and be

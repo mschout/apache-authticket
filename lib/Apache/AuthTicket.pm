@@ -214,7 +214,7 @@ example:
      TicketDBUser        => 'mschout',
      TicketDBPassword    => 'secret',
      TicketTable         => 'tickets:ticket_hash:ts',
-     TicketUserTablei    => 'myusers:usename:passwd',
+     TicketUserTable     => 'myusers:usename:passwd',
      TicketPasswordStyle => 'cleartext',
      TicketSecretTable   => 'ticket_secrets:sec_data:sec_version',
      TicketExpires       => '15',

@@ -48,7 +48,7 @@ sub configure {
     $class->push_handler(PerlChildInitHandler => sub {
         for (keys %$conf) {
             die "bad configuration parameter $_" unless defined $DEFAULTS{$_};
-            $CONFIG{$auth_name}->{$_} = $conf->{$_};
+            $CONFIG{$auth_name}{$_} = $conf->{$_};
         }
     });
 }
@@ -94,26 +94,29 @@ sub sql {
     $self->_sql;
 }
 
-sub _get_config_item {
-    my ($class, $r, $item) = @_;
+sub get_config {
+    my ($self, $name) = @_;
 
-    my $auth_name = $r->auth_name;
+    unless (defined $self->{config}{$name}) {
+        my $r = $self->request;
+        my $auth_name = $r->auth_name;
 
-    my $value = $class->str_config_value(
-        $r->dir_config("${auth_name}$item"),
-        $CONFIG{$auth_name}->{$item},
-        $DEFAULTS{$item});
+        $self->{config}{$name} =
+            $self->str_config_value(
+                $r->dir_config("${auth_name}$name"),
+                $CONFIG{$auth_name}{$name},
+                $DEFAULTS{$name});
+    }
 
-    warn "returning [$value] for $item" if DEBUGGING;
-    return $value;
+    return $self->{config}{$name}
 }
 
 sub login_screen ($$) {
     my ($class, $r) = @_;
 
-    my $auth_name = $r->auth_name;
+    my $self = $class->new($r);
 
-    my $action = $class->_get_config_item($r, 'TicketLoginHandler');
+    my $action = $self->get_config('TicketLoginHandler');
 
     my $destination = $r->prev->uri;
     my $args = $r->prev->args;
@@ -214,7 +217,7 @@ sub dbi_connect {
     my $auth_name = $r->auth_name;
 
     my ($db, $user, $pass) = map {
-        $self->_get_config_item($r, $_)
+        $self->get_config($_)
     } qw/TicketDB TicketDBUser TicketDBPassword/;
 
     my $dbh = DBI->connect_cached($db, $user, $pass)
@@ -227,7 +230,7 @@ sub check_credentials {
     my ($self, $user, $password) = @_;
 
     my ($table, $user_field, $pass_field) = 
-        split ':', $self->{TicketUserTable};
+        split ':', $self->get_config('TicketUserTable');
 
     my ($stmt, @bind) =
         $self->sql->select($table, $pass_field, {$user_field => $user});
@@ -245,7 +248,7 @@ sub check_credentials {
         return 0;
     }
 
-    my $style = $self->{TicketPasswordStyle};
+    my $style = $self->get_config('TicketPasswordStyle');
 
     if ($self->compare_password($style, $password, $db_pass)) {
         return 1;
@@ -265,7 +268,7 @@ sub fetch_secret {
     my $dbh = $self->dbh;
 
     my ($secret_table, $secret_field, $secret_version_field) =
-        split(/:/, $self->{TicketSecretTable});
+        split(/:/, $self->get_config('TicketSecretTable'));
 
     unless (defined $version) {
         $version = $self->_get_max_secret_version;
@@ -296,17 +299,17 @@ sub make_ticket {
     my ($self, $r, $user_name) = @_;
 
     my $now     = time;
-    my $expires = $now + $self->{TicketExpires} * 60;
+    my $expires = $now + $self->get_config('TicketExpires') * 60;
     my ($secret, $sec_version) = $self->fetch_secret();
 
     my @fields = ($secret, $sec_version, $now, $expires, $user_name);
 
     # only add ip if TicketCheckIP is on.
-    if ($self->_get_config_item($r, 'TicketCheckIP')) {
+    if ($self->get_config('TicketCheckIP')) {
         push @fields, $r->connection->remote_ip;
     }
 
-    if ($self->_get_config_item($r, 'TicketCheckBrowser')) {
+    if ($self->get_config('TicketCheckBrowser')) {
         push @fields, $self->user_agent;
     }
 
@@ -421,12 +424,12 @@ sub verify_ticket {
 
     my @fields = ($secret, @ticket{qw(version time expires user)});
 
-    if ($self->_get_config_item($r, 'TicketCheckIP')) {
+    if ($self->get_config('TicketCheckIP')) {
         my $ip = $r->connection->remote_ip;
         push @fields, $ip;
     }
 
-    if ($self->_get_config_item($r, 'TicketCheckBrowser')) {
+    if ($self->get_config('TicketCheckBrowser')) {
         push @fields, $self->user_agent;
     }
 
@@ -456,7 +459,7 @@ sub _update_ticket_timestamp {
     my $time = $self->request->request_time;
     my $dbh = $self->dbh;
 
-    my ($table, $tick_field, $ts_field) = split(':', $self->{TicketTable});
+    my ($table, $tick_field, $ts_field) = split(':', $self->get_config('TicketTable'));
 
     my ($query, @bind) = $self->sql->update($table,
         {$ts_field   => $time},
@@ -479,7 +482,7 @@ sub _update_ticket_timestamp {
 sub _ticket_idle_timeout {
     my ($self, $hash) = @_;
 
-    my $idle = $self->{TicketIdleTimeout} * 60;
+    my $idle = $self->get_config('TicketIdleTimeout') * 60;
     return 0 unless $idle;       # if not timeout set, its still valid.
 
     my $db_time = $self->{DBTicketTimeStamp};
@@ -504,7 +507,7 @@ sub _ticket_idle_timeout {
 sub save_hash {
     my ($self, $hash) = @_;
 
-    my ($table, $tick_field, $ts_field) = split(/:/, $self->{TicketTable});
+    my ($table, $tick_field, $ts_field) = split(/:/, $self->get_config('TicketTable'));
 
     my ($query, @bind) = $self->sql->insert($table, {
         $tick_field => $hash,
@@ -528,7 +531,7 @@ sub save_hash {
 sub delete_hash {
     my ($self, $hash) = @_;
 
-    my ($table, $tick_field) = split(/:/, $self->{TicketTable});
+    my ($table, $tick_field) = split(/:/, $self->get_config('TicketTable'));
 
     my ($query, @bind) = $self->sql->delete($table, { $tick_field => $hash });
 
@@ -550,7 +553,7 @@ sub delete_hash {
 sub is_hash_valid {
     my ($self, $hash) = @_;
 
-    my ($table, $tick_field, $ts_field) = split(/:/, $self->{TicketTable});
+    my ($table, $tick_field, $ts_field) = split(/:/, $self->get_config('TicketTable'));
 
     my ($query, @bind) = $self->sql->select($table, [$tick_field, $ts_field], 
         { $tick_field => $hash });
@@ -574,7 +577,7 @@ sub _get_max_secret_version {
     my ($self) = @_;
 
     my ($secret_table, $secret_field, $secret_version_field) =
-        split(/:/, $self->{TicketSecretTable});
+        split(/:/, $self->get_config('TicketSecretTable'));
 
     my ($query) = $self->sql->select($secret_table, ["MAX($secret_version_field)"]);
 

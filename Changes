@@ -14,6 +14,7 @@
     combine user/pass lookup into single SQL query (one less query per request)
     added get_config() for fetching config values
     added user_table(), ticket_table(), secret_table() methods to simplify table lookups
+    eliminate need for _get_max_secret_version() - consolidated into fetch_secret()
 
 Release 0.90
     changed LICENSE information in README removed "same terms as perl" and be

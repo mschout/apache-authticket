@@ -268,25 +268,19 @@ sub fetch_secret {
 
     my ($secret_table, $secret_field, $secret_version_field) = $self->secret_table;
 
-    unless (defined $version) {
-        $version = $self->_get_max_secret_version;
-    }
-
     # generate SQL
     my @fields = ($secret_field, $secret_version_field);
-    my %where = ( $secret_version_field => $version );
-    my ($stmt, @bind) = $self->sql->select($secret_table, \@fields, \%where);
+    my %where = ( $secret_version_field => $version ) if defined $version;
+    my $order = " $secret_version_field DESC LIMIT 1 ";
+    my ($stmt, @bind) = $self->sql->select($secret_table, \@fields, \%where, $order);
 
-    my ($secret, $ret_version) = (undef, undef);
-    eval {
-        ($secret, $ret_version) = $dbh->selectrow_array($stmt, undef, @bind);
+    return eval {
+        $dbh->selectrow_array($stmt, undef, @bind);
     };
     if ($@) {
         $dbh->rollback;
         die $@;
     }
-
-    return ($secret, $ret_version);
 }
 
 #
@@ -569,27 +563,6 @@ sub is_hash_valid {
     }
 
     return (defined $db_hash and $db_hash eq $hash) ? 1 : 0;
-}
-
-sub _get_max_secret_version {
-    my ($self) = @_;
-
-    my ($secret_table, $secret_field, $secret_version_field) = $self->secret_table;
-
-    my ($query) = $self->sql->select($secret_table, ["MAX($secret_version_field)"]);
-
-    my $dbh = $self->dbh;
-
-    my $version = undef;
-    eval {
-        ($version) = $dbh->selectrow_array($query);
-    };
-    if ($@) {
-        $dbh->rollback;
-        die $@;
-    }
-
-    return $version;
 }
 
 # compute a hash for the given values.

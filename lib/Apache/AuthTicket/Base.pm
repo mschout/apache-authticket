@@ -266,8 +266,7 @@ sub fetch_secret {
 
     my $dbh = $self->dbh;
 
-    my ($secret_table, $secret_field, $secret_version_field) =
-        split(/:/, $self->get_config('TicketSecretTable'));
+    my ($secret_table, $secret_field, $secret_version_field) = $self->secret_table;
 
     unless (defined $version) {
         $version = $self->_get_max_secret_version;
@@ -575,8 +574,7 @@ sub is_hash_valid {
 sub _get_max_secret_version {
     my ($self) = @_;
 
-    my ($secret_table, $secret_field, $secret_version_field) =
-        split(/:/, $self->get_config('TicketSecretTable'));
+    my ($secret_table, $secret_field, $secret_version_field) = $self->secret_table;
 
     my ($query) = $self->sql->select($secret_table, ["MAX($secret_version_field)"]);
 
@@ -668,6 +666,12 @@ sub user_table {
     my $self = shift;
 
     return split ':', $self->get_config('TicketUserTable');
+}
+
+sub secret_table {
+    my $self = shift;
+
+    return split ':', $self->get_config('TicketSecretTable');
 }
 
 # subclass must provide

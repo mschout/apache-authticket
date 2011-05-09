@@ -25,6 +25,7 @@ sub set_user {
 sub apache_const {
     my ($self, $const) = @_;
 
+    no strict 'refs';
     return *{"Apache2::Const::$const"}->();
 }
 

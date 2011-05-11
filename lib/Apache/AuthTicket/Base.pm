@@ -61,7 +61,7 @@ sub authen_cred {
     my $self = $class->new($r);
 
     if ($self->check_credentials($user, $pass)) {
-        return $self->make_ticket($r, $user);
+        return $self->make_ticket($user);
     }
     else {
         return undef;
@@ -139,7 +139,6 @@ sub make_login_screen {
         $reason = $r->prev->subprocess_env("AuthTicketReason");
         $r->log_error("AUTHTICKET REASON: $reason");
     }
-
 
     $r->content_type('text/html');
 
@@ -288,8 +287,9 @@ sub fetch_secret {
 # also, put the cookie in the outgoing headers so it wil be set on the client
 #
 sub make_ticket {
-    my ($self, $r, $user_name) = @_;
+    my ($self, $user_name) = @_;
 
+    my $r       = $self->request;
     my $now     = time;
     my $expires = $now + $self->get_config('TicketExpires') * 60;
     my ($secret, $sec_version) = $self->fetch_secret();

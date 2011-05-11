@@ -8,7 +8,7 @@
     POD: explain difference between "TicketExpires" and inherited AuthCookie
         "Expire" directive.
     MP1: synchronize with MP2 version.
-    Abstract common MP1/MP2 code into ::Base package.
+    abstract common MP1/MP2 code into ::Base package.
     Move ::Util code into ::Base
     use Class::Accessor::Fast to generate accessors
     combine user/pass lookup into single SQL query (one less query per request)
@@ -19,6 +19,7 @@
         fetch_secret()
     changed make_ticket() no longer takes $r parameter - use object attr
         instead
+    added secret_version() to fetch current max secret version
 
 Release 0.90
     changed LICENSE information in README removed "same terms as perl" and be

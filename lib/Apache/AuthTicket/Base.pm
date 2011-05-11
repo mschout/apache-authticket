@@ -12,7 +12,7 @@ use ModPerl::VersionUtil;
 
 use constant DEBUGGING => 0;
 
-__PACKAGE__->mk_accessors(qw(request _dbh _sql));
+__PACKAGE__->mk_accessors(qw(request _secret_version _dbh _sql));
 
 # configuration items
 # PerlSetVar FooTicketDB  dbi:Pg:dbname=template1
@@ -280,6 +280,19 @@ sub fetch_secret {
         $dbh->rollback;
         die $@;
     }
+}
+
+#
+# return version of the current secret
+#
+sub secret_version {
+    my $self = shift;
+
+    unless (defined $self->_secret_version) {
+        $self->_secret_version( ($self->fetch_secret)[1] );
+    }
+
+    return $self->_secret_version;
 }
 
 #

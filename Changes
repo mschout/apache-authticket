@@ -13,8 +13,10 @@
     use Class::Accessor::Fast to generate accessors
     combine user/pass lookup into single SQL query (one less query per request)
     added get_config() for fetching config values
-    added user_table(), ticket_table(), secret_table() methods to simplify table lookups
-    eliminate need for _get_max_secret_version() - consolidated into fetch_secret()
+    added user_table(), ticket_table(), secret_table() methods to simplify
+        table lookups
+    eliminate need for _get_max_secret_version() - consolidated into
+        fetch_secret()
     changed make_ticket() no longer takes $r parameter - use object attr
         instead
 

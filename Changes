@@ -20,6 +20,7 @@
     changed make_ticket() no longer takes $r parameter - use object attr
         instead
     added secret_version() to fetch current max secret version
+    abstract new ticket fields generation into new_ticket_for()
 
 Release 0.90
     changed LICENSE information in README removed "same terms as perl" and be

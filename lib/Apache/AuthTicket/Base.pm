@@ -302,16 +302,15 @@ sub secret_version {
 sub make_ticket {
     my ($self, $user_name) = @_;
 
-    my $r       = $self->request;
-    my $now     = time;
-    my $expires = $now + $self->get_config('TicketExpires') * 60;
-    my ($secret, $sec_version) = $self->fetch_secret();
+    my $ticket = $self->new_ticket_for($user_name);
 
-    my @fields = ($secret, $sec_version, $now, $expires, $user_name);
+    my ($secret) = $self->fetch_secret($$ticket{version});
+
+    my @fields = ($secret, @$ticket{qw(version time expires user)});
 
     # only add ip if TicketCheckIP is on.
     if ($self->get_config('TicketCheckIP')) {
-        push @fields, $r->connection->remote_ip;
+        push @fields, $self->request->connection->remote_ip;
     }
 
     if ($self->get_config('TicketCheckBrowser')) {
@@ -320,16 +319,10 @@ sub make_ticket {
 
     my $hash = $self->hash_for(@fields);
 
-    my %key = (
-        'version' => $sec_version,
-        'time'    => $now,
-        'user'    => $user_name,
-        'expires' => $expires,
-        'hash'    => $hash
-    );
+    $$ticket{hash} = $self->hash_for(@fields);
 
     eval {
-        $self->save_hash($key{'hash'});
+        $self->save_hash($hash);
     };
     if ($@) {
         warn "save_hash() failed, treating this request as invalid login.\n";
@@ -337,7 +330,25 @@ sub make_ticket {
         return;
     }
 
-    return $self->_pack_ticket(%key);
+    return $self->_pack_ticket($ticket);
+}
+
+#
+# return hashref for new ticket for the given username.
+# overload this in a subclass to add new fields to the ticket
+#
+sub new_ticket_for {
+    my ($self, $user_name) = @_;
+
+    my $now     = time;
+    my $expires = $now + $self->get_config('TicketExpires') * 60;
+
+    return {
+        version => $self->secret_version,
+        time    => $now,
+        user    => $user_name,
+        expires => $expires
+    };
 }
 
 # invalidate the ticket by expiring the cookie, and delete the hash locally
@@ -382,8 +393,8 @@ sub _unpack_ticket {
 }
 
 sub _pack_ticket {
-    my ($self, %ticket) = @_;
-    return join(':', %ticket);
+    my ($self, $ticket) = @_;
+    return join ':', %$ticket;
 }
 
 #

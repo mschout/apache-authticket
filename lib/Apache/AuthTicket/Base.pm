@@ -42,6 +42,18 @@ our %DEFAULTS = (
 # configured items get dumped in here
 our %CONFIG = ();
 
+=method configure
+
+ Apache2::AuthTicket->configure(AuthName =>
+    TicketUserTable => 'users:user_name:pass',
+    TicketLoginHandler => '/login',
+    ...
+ );
+
+This sets configuration values for a given AuthName.  This is an alternative to
+using PerlSetVar's to specify all of the configuration settings.
+
+=cut
 sub configure {
     my ($class, $auth_name, $conf) = @_;
 
@@ -84,6 +96,11 @@ sub authen_ses_key {
     }
 }
 
+=method sql
+
+Get the C<SQL::Abstract> object.
+
+=cut
 sub sql {
     my $self = shift;
 
@@ -94,6 +111,14 @@ sub sql {
     $self->_sql;
 }
 
+=method get_config
+
+ my $value = $self->get_config($name)
+
+Get a configuration value, or its default value if the setting is not
+configured.
+
+=cut
 sub get_config {
     my ($self, $name) = @_;
 
@@ -129,6 +154,13 @@ sub login_screen ($$) {
     return $class->apache_const('OK');
 }
 
+=method make_login_screen
+
+ my $result = $self->make_login_screen($r, $action, $destination)
+
+Print out the login screen html, and return an Apache status code.
+
+=cut
 sub make_login_screen {
     my ($self, $r, $action, $destination) = @_;
 
@@ -199,6 +231,11 @@ sub new {
     return $class->SUPER::new({request => $r});
 }
 
+=method dbh
+
+Get the database handle
+
+=cut
 sub dbh {
     my $self = shift;
 
@@ -209,6 +246,13 @@ sub dbh {
     $self->_dbh;
 }
 
+=method dbi_connect
+
+ my $dbh = $self->dbi_connect
+
+Returns a new connection to the database
+
+=cut
 sub dbi_connect {
     my $self = shift;
 
@@ -225,6 +269,13 @@ sub dbi_connect {
     return $dbh;
 }
 
+=method check_credentials
+
+ my $ok = $self->check_credentials($username, $password)
+
+Return C<true> if the credentials are valid
+
+=cut
 sub check_credentials {
     my ($self, $user, $password) = @_;
 
@@ -256,10 +307,16 @@ sub check_credentials {
     }
 }
 
-#
-# ($secret, $version) = $obj->fetch_secret();
-# ($secret, $version) = $obj->fetch_secret($ver);
-#
+=method fetch_secret
+
+ my ($value, $version) = $self->fetch_secret;
+ my ($value) = $self->fetch_secret($version)
+
+Return the secret and version of the secret.  if the C<version> argument is
+present, return that specific version of the secret instead of the most recent
+one.
+
+=cut
 sub fetch_secret {
     my ($self, $version) = @_;
 
@@ -282,9 +339,11 @@ sub fetch_secret {
     }
 }
 
-#
-# return version of the current secret
-#
+=method secret_version
+
+Returns the version of the current (most-recent) secret
+
+=cut
 sub secret_version {
     my $self = shift;
 
@@ -295,10 +354,13 @@ sub secret_version {
     return $self->_secret_version;
 }
 
-#
-# create a new ticket, save the hash, and return an Apache::Cookie object
-# also, put the cookie in the outgoing headers so it wil be set on the client
-#
+=method make_ticket
+
+ my $string = $self->make_ticket($username)
+
+Creates a ticket string for the given username
+
+=cut
 sub make_ticket {
     my ($self, $user_name) = @_;
 
@@ -333,10 +395,14 @@ sub make_ticket {
     return $self->_pack_ticket($ticket);
 }
 
-#
-# return hashref for new ticket for the given username.
-# overload this in a subclass to add new fields to the ticket
-#
+=method new_ticket_for
+
+ my $hashref = $self->new_ticket_for($username)
+
+Creates new ticket hashref for the given username.  You could overload this to
+append extra fields to the ticket.
+
+=cut
 sub new_ticket_for {
     my ($self, $user_name) = @_;
 
@@ -351,7 +417,13 @@ sub new_ticket_for {
     };
 }
 
-# invalidate the ticket by expiring the cookie, and delete the hash locally
+=method delete_ticket
+
+ $self->delete_ticket($r)
+
+Invalidates the ticket by expiring the cookie and deletes the hash from the database
+
+=cut
 sub delete_ticket {
     my ($self, $r) = @_;
 
@@ -363,11 +435,13 @@ sub delete_ticket {
     $self->delete_hash($ticket{'hash'});
 }
 
-#
-# boolean check_ticket_format(%ticket)
-#
-# return true if the ticket contains the required fields.
-#
+=method check_ticket_format
+
+ my $ok = $self->check_ticket_format(%ticket)
+
+Check that the ticket contains the minimum required fields.
+
+=cut
 sub check_ticket_format {
     my ($self, %key) = @_;
 
@@ -379,6 +453,7 @@ sub check_ticket_format {
     return 1;
 }
 
+# unpack ticket cookie string to hash
 sub _unpack_ticket {
     my ($self, $key) = @_;
 
@@ -392,16 +467,37 @@ sub _unpack_ticket {
     return @attrs;
 }
 
+# pack ticket hashref into a string
 sub _pack_ticket {
     my ($self, $ticket) = @_;
     return join ':', %$ticket;
 }
 
-#
-# boolean verify_ticket($key)
-#
-# Verify the ticket and return true or false.
-#
+=method verify_ticket
+
+ my $ok = $self->verify_ticket($ticket_string)
+
+Verify the ticket string.  If the ticket is invalid or tampered, the C<AuthTicketReason> subprocess_env setting will be set to one of the following:
+
+=begin :list
+
+* malformed_ticket
+Ticket does not contain the required fields
+* invalid_hash
+Ticket hash is not found in the database
+* expired_ticket
+Ticket has expired
+* missing_secret
+Secret that signed this ticket was not found
+* idle_timeout
+Ticket idle timeout exceeded
+* tampered_hash
+Ticket has been tampered with.  The checksum does not match the checksum in the
+ticket
+
+=end :list
+
+=cut
 sub verify_ticket {
     my ($self, $key) = @_;
 
@@ -517,9 +613,13 @@ sub _ticket_idle_timeout {
     }
 }
 
-#
-# save the ticket hash in the db
-#
+=method save_hash
+
+ $self->save_hash($hash)
+
+save the hash value/checksum in the database
+
+=cut
 sub save_hash {
     my ($self, $hash) = @_;
 
@@ -541,9 +641,13 @@ sub save_hash {
     }
 }
 
-#
-# delete the ticket hash from the db
-#
+=method delete_hash
+
+ $self->delete_hash($hash)
+
+Remove the given hash from the database.
+
+=cut
 sub delete_hash {
     my ($self, $hash) = @_;
 
@@ -563,9 +667,13 @@ sub delete_hash {
     }
 }
 
-#
-# return TRUE if the hash is in the db
-#
+=method is_hash_valid
+
+ my $ok = $self->is_hash_valid($hash)
+
+Return C<true> if the given hash is in the local database
+
+=cut
 sub is_hash_valid {
     my ($self, $hash) = @_;
 
@@ -589,14 +697,26 @@ sub is_hash_valid {
     return (defined $db_hash and $db_hash eq $hash) ? 1 : 0;
 }
 
-# compute a hash for the given values.
+=method hash_for
+
+ my $hash = $self->hash_for(@values)
+
+Compute a hash for the given values
+
+=cut
 sub hash_for {
     my $self = shift;
 
     return Digest::MD5::md5_hex(@_);
 }
 
-# get clients user agent string
+=method user_agent
+
+ my $agent = $self->user_agent
+
+Get the request client's user agent string
+
+=cut
 sub user_agent {
     my $self = shift;
 
@@ -605,6 +725,24 @@ sub user_agent {
         || '';
 }
 
+=method compare_password
+
+ my $ok = $self->compare_password($style, $entered, $actual)
+
+Check a password and return C<true> if C<entered> matches C<actual>.  C<style> specifys what type of password is in C<actual>, and is one of the following:
+
+=begin :list
+
+* crypt
+standard UNIX C<crypt()> value
+* cleartext
+plain text password
+* md5
+MD5 hash of password
+
+=end :list
+
+=cut
 sub compare_password {
     my ($self, $style, $check, $expected) = @_;
 
@@ -624,9 +762,16 @@ sub compare_password {
     return 0;
 }
 
-# convert recognized true/false aliases to boolean. Multiple strings may be passed and the
-# first defined one will be converted.  If none of the strings are defined,
-# undef is returned.
+=method str_config_value
+
+ my $val = $self->str_config_value($name)
+
+Get a configuration value.  This converts things like yes,on,true to C<1>, and
+no,off,false to C<0>.  Multiple C<name> values may be given and the first
+defined value will be returned.  If no config value is defined matching any of
+the given C<name>'s, then C<undef> is returned.
+
+=cut
 sub str_config_value {
     my $self = shift;
 
@@ -651,20 +796,39 @@ sub str_config_value {
     return;
 }
 
-# return: ($table, hash_field, ts_field)
+=method ticket_table
+
+ my ($name, $hash_col, $timestamp_col) = $self->ticket_table
+
+Unpacks the config value C<TicketTable> into its components.
+
+=cut
 sub ticket_table {
     my $self = shift;
 
     return split ':', $self->get_config('TicketTable');
 }
 
-# return: (table, user_field, $pass_field)
+=method user_table
+
+ my ($name, $hash_col, $timestamp_col) = $self->ticket_table
+
+Unpacks the config value C<TicketUserTable> into its components.
+
+=cut
 sub user_table {
     my $self = shift;
 
     return split ':', $self->get_config('TicketUserTable');
 }
 
+=method secret_table
+
+ my ($name, $hash_col, $timestamp_col) = $self->ticket_table
+
+Unpacks the config value C<TicketSecretTable> into its components.
+
+=cut
 sub secret_table {
     my $self = shift;
 

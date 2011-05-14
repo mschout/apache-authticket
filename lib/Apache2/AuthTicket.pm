@@ -1,4 +1,7 @@
 package Apache2::AuthTicket;
+BEGIN {
+  $Apache2::AuthTicket::VERSION = '0.91';
+}
 
 # ABSTRACT: Cookie Based Access and Authorization Module
 
@@ -31,7 +34,17 @@ sub apache_const {
 
 1;
 
-__END__
+
+
+=pod
+
+=head1 NAME
+
+Apache2::AuthTicket - Cookie Based Access and Authorization Module
+
+=head1 VERSION
+
+version 0.91
 
 =head1 SYNOPSIS
 
@@ -481,4 +494,29 @@ along with several ideas discussed on the mod_perl mailing list.
 
 L<perl>, L<mod_perl>, L<Apache2::AuthCookie>
 
+=head1 SOURCE
+
+The development version is on github at L<http://github.com/mschout/apache-authticket>
+and may be cloned from L<git://github.com/mschout/apache-authticket.git>
+
+=head1 BUGS
+
+Please report any bugs or feature requests to bug-apache-authticket@rt.cpan.org or through the web interface at:
+ http://rt.cpan.org/Public/Dist/Display.html?Name=Apache-AuthTicket
+
+=head1 AUTHOR
+
+Michael Schout <mschout@cpan.org>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2000 by Michael Schout.
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
+
 =cut
+
+
+__END__
+

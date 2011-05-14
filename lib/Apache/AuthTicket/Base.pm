@@ -1,4 +1,7 @@
 package Apache::AuthTicket::Base;
+BEGIN {
+  $Apache::AuthTicket::Base::VERSION = '0.91';
+}
 
 # ABSTRACT: Common methods for all Apache::AuthTicket versions.
 
@@ -42,18 +45,6 @@ our %DEFAULTS = (
 # configured items get dumped in here
 our %CONFIG = ();
 
-=method configure
-
- Apache2::AuthTicket->configure(AuthName =>
-    TicketUserTable => 'users:user_name:pass',
-    TicketLoginHandler => '/login',
-    ...
- );
-
-This sets configuration values for a given AuthName.  This is an alternative to
-using PerlSetVar's to specify all of the configuration settings.
-
-=cut
 sub configure {
     my ($class, $auth_name, $conf) = @_;
 
@@ -96,11 +87,6 @@ sub authen_ses_key {
     }
 }
 
-=method sql
-
-Get the C<SQL::Abstract> object.
-
-=cut
 sub sql {
     my $self = shift;
 
@@ -111,14 +97,6 @@ sub sql {
     $self->_sql;
 }
 
-=method get_config
-
- my $value = $self->get_config($name)
-
-Get a configuration value, or its default value if the setting is not
-configured.
-
-=cut
 sub get_config {
     my ($self, $name) = @_;
 
@@ -154,13 +132,6 @@ sub login_screen ($$) {
     return $class->apache_const('OK');
 }
 
-=method make_login_screen
-
- my $result = $self->make_login_screen($r, $action, $destination)
-
-Print out the login screen html, and return an Apache status code.
-
-=cut
 sub make_login_screen {
     my ($self, $r, $action, $destination) = @_;
 
@@ -231,11 +202,6 @@ sub new {
     return $class->SUPER::new({request => $r});
 }
 
-=method dbh
-
-Get the database handle
-
-=cut
 sub dbh {
     my $self = shift;
 
@@ -246,13 +212,6 @@ sub dbh {
     $self->_dbh;
 }
 
-=method dbi_connect
-
- my $dbh = $self->dbi_connect
-
-Returns a new connection to the database
-
-=cut
 sub dbi_connect {
     my $self = shift;
 
@@ -269,13 +228,6 @@ sub dbi_connect {
     return $dbh;
 }
 
-=method check_credentials
-
- my $ok = $self->check_credentials($username, $password)
-
-Return C<true> if the credentials are valid
-
-=cut
 sub check_credentials {
     my ($self, $user, $password) = @_;
 
@@ -307,16 +259,6 @@ sub check_credentials {
     }
 }
 
-=method fetch_secret
-
- my ($value, $version) = $self->fetch_secret;
- my ($value) = $self->fetch_secret($version)
-
-Return the secret and version of the secret.  if the C<version> argument is
-present, return that specific version of the secret instead of the most recent
-one.
-
-=cut
 sub fetch_secret {
     my ($self, $version) = @_;
 
@@ -339,11 +281,6 @@ sub fetch_secret {
     }
 }
 
-=method secret_version
-
-Returns the version of the current (most-recent) secret
-
-=cut
 sub secret_version {
     my $self = shift;
 
@@ -354,13 +291,6 @@ sub secret_version {
     return $self->_secret_version;
 }
 
-=method make_ticket
-
- my $string = $self->make_ticket($username)
-
-Creates a ticket string for the given username
-
-=cut
 sub make_ticket {
     my ($self, $user_name) = @_;
 
@@ -395,14 +325,6 @@ sub make_ticket {
     return $self->_pack_ticket($ticket);
 }
 
-=method new_ticket_for
-
- my $hashref = $self->new_ticket_for($username)
-
-Creates new ticket hashref for the given username.  You could overload this to
-append extra fields to the ticket.
-
-=cut
 sub new_ticket_for {
     my ($self, $user_name) = @_;
 
@@ -417,13 +339,6 @@ sub new_ticket_for {
     };
 }
 
-=method delete_ticket
-
- $self->delete_ticket($r)
-
-Invalidates the ticket by expiring the cookie and deletes the hash from the database
-
-=cut
 sub delete_ticket {
     my ($self, $r) = @_;
 
@@ -435,13 +350,6 @@ sub delete_ticket {
     $self->delete_hash($ticket{'hash'});
 }
 
-=method check_ticket_format
-
- my $ok = $self->check_ticket_format(%ticket)
-
-Check that the ticket contains the minimum required fields.
-
-=cut
 sub check_ticket_format {
     my ($self, %key) = @_;
 
@@ -473,31 +381,6 @@ sub _pack_ticket {
     return join ':', %$ticket;
 }
 
-=method verify_ticket
-
- my $ok = $self->verify_ticket($ticket_string)
-
-Verify the ticket string.  If the ticket is invalid or tampered, the C<AuthTicketReason> subprocess_env setting will be set to one of the following:
-
-=begin :list
-
-* malformed_ticket
-Ticket does not contain the required fields
-* invalid_hash
-Ticket hash is not found in the database
-* expired_ticket
-Ticket has expired
-* missing_secret
-Secret that signed this ticket was not found
-* idle_timeout
-Ticket idle timeout exceeded
-* tampered_hash
-Ticket has been tampered with.  The checksum does not match the checksum in the
-ticket
-
-=end :list
-
-=cut
 sub verify_ticket {
     my ($self, $key) = @_;
 
@@ -613,13 +496,6 @@ sub _ticket_idle_timeout {
     }
 }
 
-=method save_hash
-
- $self->save_hash($hash)
-
-save the hash value/checksum in the database
-
-=cut
 sub save_hash {
     my ($self, $hash) = @_;
 
@@ -641,13 +517,6 @@ sub save_hash {
     }
 }
 
-=method delete_hash
-
- $self->delete_hash($hash)
-
-Remove the given hash from the database.
-
-=cut
 sub delete_hash {
     my ($self, $hash) = @_;
 
@@ -667,13 +536,6 @@ sub delete_hash {
     }
 }
 
-=method is_hash_valid
-
- my $ok = $self->is_hash_valid($hash)
-
-Return C<true> if the given hash is in the local database
-
-=cut
 sub is_hash_valid {
     my ($self, $hash) = @_;
 
@@ -697,26 +559,12 @@ sub is_hash_valid {
     return (defined $db_hash and $db_hash eq $hash) ? 1 : 0;
 }
 
-=method hash_for
-
- my $hash = $self->hash_for(@values)
-
-Compute a hash for the given values
-
-=cut
 sub hash_for {
     my $self = shift;
 
     return Digest::MD5::md5_hex(@_);
 }
 
-=method user_agent
-
- my $agent = $self->user_agent
-
-Get the request client's user agent string
-
-=cut
 sub user_agent {
     my $self = shift;
 
@@ -725,24 +573,6 @@ sub user_agent {
         || '';
 }
 
-=method compare_password
-
- my $ok = $self->compare_password($style, $entered, $actual)
-
-Check a password and return C<true> if C<entered> matches C<actual>.  C<style> specifys what type of password is in C<actual>, and is one of the following:
-
-=begin :list
-
-* crypt
-standard UNIX C<crypt()> value
-* cleartext
-plain text password
-* md5
-MD5 hash of password
-
-=end :list
-
-=cut
 sub compare_password {
     my ($self, $style, $check, $expected) = @_;
 
@@ -762,16 +592,6 @@ sub compare_password {
     return 0;
 }
 
-=method str_config_value
-
- my $val = $self->str_config_value($name)
-
-Get a configuration value.  This converts things like yes,on,true to C<1>, and
-no,off,false to C<0>.  Multiple C<name> values may be given and the first
-defined value will be returned.  If no config value is defined matching any of
-the given C<name>'s, then C<undef> is returned.
-
-=cut
 sub str_config_value {
     my $self = shift;
 
@@ -796,39 +616,18 @@ sub str_config_value {
     return;
 }
 
-=method ticket_table
-
- my ($name, $hash_col, $timestamp_col) = $self->ticket_table
-
-Unpacks the config value C<TicketTable> into its components.
-
-=cut
 sub ticket_table {
     my $self = shift;
 
     return split ':', $self->get_config('TicketTable');
 }
 
-=method user_table
-
- my ($name, $hash_col, $timestamp_col) = $self->ticket_table
-
-Unpacks the config value C<TicketUserTable> into its components.
-
-=cut
 sub user_table {
     my $self = shift;
 
     return split ':', $self->get_config('TicketUserTable');
 }
 
-=method secret_table
-
- my ($name, $hash_col, $timestamp_col) = $self->ticket_table
-
-Unpacks the config value C<TicketSecretTable> into its components.
-
-=cut
 sub secret_table {
     my $self = shift;
 
@@ -846,7 +645,17 @@ sub apache_const { die "unimplemented" }
 
 1;
 
-__END__
+
+
+=pod
+
+=head1 NAME
+
+Apache::AuthTicket::Base - Common methods for all Apache::AuthTicket versions.
+
+=head1 VERSION
+
+version 0.91
 
 =head1 SYNOPSIS
 
@@ -857,4 +666,246 @@ __END__
 
 This module is a base class providing common methods for C<Apache::AuthTicket>
 and C<Apache2::AuthTicket>.
+
+=head1 METHODS
+
+=head2 configure
+
+ Apache2::AuthTicket->configure(AuthName =>
+    TicketUserTable => 'users:user_name:pass',
+    TicketLoginHandler => '/login',
+    ...
+ );
+
+This sets configuration values for a given AuthName.  This is an alternative to
+using PerlSetVar's to specify all of the configuration settings.
+
+=head2 sql
+
+Get the C<SQL::Abstract> object.
+
+=head2 get_config
+
+ my $value = $self->get_config($name)
+
+Get a configuration value, or its default value if the setting is not
+configured.
+
+=head2 make_login_screen
+
+ my $result = $self->make_login_screen($r, $action, $destination)
+
+Print out the login screen html, and return an Apache status code.
+
+=head2 dbh
+
+Get the database handle
+
+=head2 dbi_connect
+
+ my $dbh = $self->dbi_connect
+
+Returns a new connection to the database
+
+=head2 check_credentials
+
+ my $ok = $self->check_credentials($username, $password)
+
+Return C<true> if the credentials are valid
+
+=head2 fetch_secret
+
+ my ($value, $version) = $self->fetch_secret;
+ my ($value) = $self->fetch_secret($version)
+
+Return the secret and version of the secret.  if the C<version> argument is
+present, return that specific version of the secret instead of the most recent
+one.
+
+=head2 secret_version
+
+Returns the version of the current (most-recent) secret
+
+=head2 make_ticket
+
+ my $string = $self->make_ticket($username)
+
+Creates a ticket string for the given username
+
+=head2 new_ticket_for
+
+ my $hashref = $self->new_ticket_for($username)
+
+Creates new ticket hashref for the given username.  You could overload this to
+append extra fields to the ticket.
+
+=head2 delete_ticket
+
+ $self->delete_ticket($r)
+
+Invalidates the ticket by expiring the cookie and deletes the hash from the database
+
+=head2 check_ticket_format
+
+ my $ok = $self->check_ticket_format(%ticket)
+
+Check that the ticket contains the minimum required fields.
+
+=head2 verify_ticket
+
+ my $ok = $self->verify_ticket($ticket_string)
+
+Verify the ticket string.  If the ticket is invalid or tampered, the C<AuthTicketReason> subprocess_env setting will be set to one of the following:
+
+=over 4
+
+=item *
+
+malformed_ticket
+
+Ticket does not contain the required fields
+
+=item *
+
+invalid_hash
+
+Ticket hash is not found in the database
+
+=item *
+
+expired_ticket
+
+Ticket has expired
+
+=item *
+
+missing_secret
+
+Secret that signed this ticket was not found
+
+=item *
+
+idle_timeout
+
+Ticket idle timeout exceeded
+
+=item *
+
+tampered_hash
+
+Ticket has been tampered with.  The checksum does not match the checksum in the
+ticket
+
+=back
+
+=head2 save_hash
+
+ $self->save_hash($hash)
+
+save the hash value/checksum in the database
+
+=head2 delete_hash
+
+ $self->delete_hash($hash)
+
+Remove the given hash from the database.
+
+=head2 is_hash_valid
+
+ my $ok = $self->is_hash_valid($hash)
+
+Return C<true> if the given hash is in the local database
+
+=head2 hash_for
+
+ my $hash = $self->hash_for(@values)
+
+Compute a hash for the given values
+
+=head2 user_agent
+
+ my $agent = $self->user_agent
+
+Get the request client's user agent string
+
+=head2 compare_password
+
+ my $ok = $self->compare_password($style, $entered, $actual)
+
+Check a password and return C<true> if C<entered> matches C<actual>.  C<style> specifys what type of password is in C<actual>, and is one of the following:
+
+=over 4
+
+=item *
+
+crypt
+
+standard UNIX C<crypt()> value
+
+=item *
+
+cleartext
+
+plain text password
+
+=item *
+
+md5
+
+MD5 hash of password
+
+=back
+
+=head2 str_config_value
+
+ my $val = $self->str_config_value($name)
+
+Get a configuration value.  This converts things like yes,on,true to C<1>, and
+no,off,false to C<0>.  Multiple C<name> values may be given and the first
+defined value will be returned.  If no config value is defined matching any of
+the given C<name>'s, then C<undef> is returned.
+
+=head2 ticket_table
+
+ my ($name, $hash_col, $timestamp_col) = $self->ticket_table
+
+Unpacks the config value C<TicketTable> into its components.
+
+=head2 user_table
+
+ my ($name, $hash_col, $timestamp_col) = $self->ticket_table
+
+Unpacks the config value C<TicketUserTable> into its components.
+
+=head2 secret_table
+
+ my ($name, $hash_col, $timestamp_col) = $self->ticket_table
+
+Unpacks the config value C<TicketSecretTable> into its components.
+
+=head1 SOURCE
+
+The development version is on github at L<http://github.com/mschout/apache-authticket>
+and may be cloned from L<git://github.com/mschout/apache-authticket.git>
+
+=head1 BUGS
+
+Please report any bugs or feature requests to bug-apache-authticket@rt.cpan.org or through the web interface at:
+ http://rt.cpan.org/Public/Dist/Display.html?Name=Apache-AuthTicket
+
+=head1 AUTHOR
+
+Michael Schout <mschout@cpan.org>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2000 by Michael Schout.
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
+
+=cut
+
+
+__END__
 

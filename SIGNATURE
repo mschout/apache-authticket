@@ -1,0 +1,52 @@
+This file contains message digests of all files listed in MANIFEST,
+signed via the Module::Signature module, version 0.64.
+
+To verify the content in this distribution, first make sure you have
+Module::Signature installed, then type:
+
+    % cpansign -v
+
+It will check each file's integrity, as well as the signature's
+validity.  If "==> Signature verified OK! <==" is not displayed,
+the distribution may already have been compromised, and you should
+not run its Makefile.PL or Build.PL.
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+SHA1 b27ad06d71e8823be33f0fd4caeb19bc1029cdd7 Changes
+SHA1 723eeb017048bc044a64d662bc15629a0fc9f9bc LICENSE
+SHA1 e1610f30f46e388bb45905b77a4009d5274de02e MANIFEST
+SHA1 ab560e33a2c26fe0f8dcda7e9fd89acec8a0438f MANIFEST.SKIP
+SHA1 6ff65174dc3ec5c4d51425e5afe66b412aec53c9 META.yml
+SHA1 8ec5ca6aa3f51e0cebb84b1e37b52ece1754beb4 Makefile.PL
+SHA1 9d23f7efe7217d113889cdb3dc84b9d473069e1f README
+SHA1 2ba7c70bf5de1d9faa51f6c9377af729f4dcb3ce TODO
+SHA1 fcb6b41b057e069a16c80c0888145b4e2a00df0d lib/Apache/AuthTicket.pm
+SHA1 b6c1602bbf1ff1c1020c0b44e6ced3bbd25270de lib/Apache/AuthTicket/Base.pm
+SHA1 143e0adec0b1b4788a4a507b96330240c8d3c6ae lib/Apache2/AuthTicket.pm
+SHA1 5c582e555b7a769a5426c9594986503204db047c sample/apache.conf
+SHA1 43aa0abcaeb4b81a674bf4fe1e86283f11a1fa2b sample/apache2.conf
+SHA1 bfed0aca630ec73296e56764a3f8f0e95976e2a4 sample/mysql.sql
+SHA1 9b9c1209bcb8dab96718617324684794cc000e2a sample/pgsql.sql
+SHA1 a0fa4c757db0157b9b19260dd492b329444b35aa t/01-sqlite.t
+SHA1 adcfc1165110741fad1398210055ba6692debfba t/TEST.PL
+SHA1 668f4d6208124569c5a41c11b3fa3c9e4d7d1c7e t/apache/warnings.t
+SHA1 2f22498a3ddc37a7fa61103db11980d9d5d8b8cf t/apache2/warnings.t
+SHA1 c5281fd0de1419363abb611406e5b567f2dc9089 t/auth.t
+SHA1 65d04bd627b5270ba1709e733b86747d59c59ab2 t/compile.t
+SHA1 d2a13c2cce7bf1bf29bec26bed0b836139eb6aed t/conf/extra.conf.in
+SHA1 e16df4b6fc7e10c12a255ede916772030d4a3059 t/conf/mp1-startup.pl
+SHA1 9a4bd966b763f5f332fb867028b559359f7b6bb0 t/htdocs/protected/index.html
+SHA1 9a4bd966b763f5f332fb867028b559359f7b6bb0 t/htdocs/secure/protected/index.html
+SHA1 5aeb51048d562cf81ac4150e256865a49a41f982 t/lib/My/Util.pm
+SHA1 c753e69c068ee6b691dd31e8bddc889673c04bdf t/logs/access_log (lothlorien's conflicted copy 2011-05-09)
+SHA1 b30cbdfaf935017c4568c0c91b242438cb87786e t/release-pod-syntax.t
+SHA1 61cea839dd94aaaeb301ccac9b83cde4c5c91b42 t/signature.t
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iEYEARECAAYFAk3N59kACgkQ+CqvSzp9LOwaVACfXCVicgXg1bQq7LV94o3/iDn1
+WhcAnjvFZOy24IBdwKv5ZLeaWbdCnQii
+=W2G4
+-----END PGP SIGNATURE-----

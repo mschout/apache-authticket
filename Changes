@@ -1,4 +1,6 @@
 {{$NEXT}}
+
+0.91  2011-05-13
     added SIGNATURE support to make dist
     added signature test
     added META_MERGE bugtracker, repository to Makefile.PL

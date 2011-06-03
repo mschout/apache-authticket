@@ -66,17 +66,19 @@ sub test_configure {
     else {
         # overload test rule with a no-op
         warn "***: You should install Apache::Test to do real testing\n";
-        *MY::test = sub {
-            return <<'EOF';
-test : pure_all
-»···@echo \*** This test suite requires Apache::Test available from CPAN
-EOF
-        };
+        *MY::test = \&skip_no_apache_test;
     }
 
     unless (eval { require DBD::SQLite }) {
         warn "***: You should install DBD::SQLite to do real testing\n";
     }
+}
+
+sub skip_no_apache_test {
+    return <<'EOF';
+test::
+	@echo \*** This test suite requires Apache::Test available from CPAN
+EOF
 }
 
 # :vim set ts=4 sw=4 ai et

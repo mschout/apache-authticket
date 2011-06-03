@@ -1,3 +1,10 @@
+0.92  2011-06-03
+*** Ticket Format Has Changed ***
+    Tickets are now opaque, and are strings that include the signature hash,
+        and the ticket data in MIME::Base64 encoding. This ensures that fields
+        that may have been added to the ticket by a subclass are included in
+        the signature.
+
 0.91  2011-05-13
     added SIGNATURE support to make dist
     added signature test

@@ -16,8 +16,6 @@ sample/mysql.sql
 sample/pgsql.sql
 t/01-sqlite.t
 t/TEST.PL
-t/apache/warnings.t
-t/apache2/warnings.t
 t/auth.t
 t/compile.t
 t/conf/extra.conf.in
@@ -25,6 +23,5 @@ t/conf/mp1-startup.pl
 t/htdocs/protected/index.html
 t/htdocs/secure/protected/index.html
 t/lib/My/Util.pm
-'t/logs/access_log (lothlorien\'s conflicted copy 2011-05-09)'
 t/release-pod-syntax.t
 t/signature.t

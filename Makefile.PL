@@ -12,11 +12,17 @@ my %conf = (
     NAME          => 'Apache::AuthTicket',
     VERSION_FROM  => 'lib/Apache/AuthTicket.pm',
     PREREQ_PM     => {
-        'Apache::Test'  => 1.22,
-        'DBI'           => 0,
-        'Digest::MD5'   => 0,
-        'SQL::Abstract' => 0,
-        'Test::More'    => 0
+        'Apache::Test'          => 1.35,
+        'CGI'                   => 3.12,
+        'Class::Accessor::Fast' => 0,
+        'DBI'                   => 0,
+        'Digest::MD5'           => 0,
+        'MIME::Base64'          => 0,
+        'ModPerl::VersionUtil'  => 0,
+        'MRO::Compat'           => 0,
+        'SQL::Abstract'         => 0,
+        'Storable'              => 0,
+        'Test::More'            => 0
     },
     clean         => {
         FILES => \@CLEAN_FILES
@@ -60,17 +66,19 @@ sub test_configure {
     else {
         # overload test rule with a no-op
         warn "***: You should install Apache::Test to do real testing\n";
-        *MY::test = sub {
-            return <<'EOF';
-test : pure_all
-»···@echo \*** This test suite requires Apache::Test available from CPAN
-EOF
-        };
+        *MY::test = \&skip_no_apache_test;
     }
 
     unless (eval { require DBD::SQLite }) {
         warn "***: You should install DBD::SQLite to do real testing\n";
     }
+}
+
+sub skip_no_apache_test {
+    return <<'EOF';
+test::
+	@echo \*** This test suite requires Apache::Test available from CPAN
+EOF
 }
 
 # :vim set ts=4 sw=4 ai et

@@ -1,6 +1,6 @@
 package Apache::AuthTicket::Base;
 BEGIN {
-  $Apache::AuthTicket::Base::VERSION = '0.91';
+  $Apache::AuthTicket::Base::VERSION = '0.92';
 }
 
 # ABSTRACT: Common methods for all Apache::AuthTicket versions.
@@ -11,6 +11,8 @@ use DBI;
 use SQL::Abstract;
 use MRO::Compat;
 use Digest::MD5;
+use MIME::Base64 ();
+use Storable ();
 use ModPerl::VersionUtil;
 
 use constant DEBUGGING => 0;
@@ -78,12 +80,87 @@ sub authen_ses_key {
 
     my $self = $class->new($r);
 
-    if ($self->verify_ticket($session_key)) {
-        my %ticket = $self->_unpack_ticket($session_key);
-        return $ticket{user};
+    if (my $ticket = $self->parse_ticket($session_key)) {
+        return $$ticket{user};
     }
     else {
         return undef;
+    }
+}
+
+sub _error_reason {
+    my ($self, $reason) = @_;
+
+    $self->request->subprocess_env(AuthTicketReason => $reason);
+
+    return;
+}
+
+
+sub parse_ticket {
+    my ($self, $key) = @_;
+
+    my $r = $self->request;
+
+    my ($hash, $data) = split '--', $key
+        or return $self->_error_reason('malformed_ticket');
+
+    my ($secret, $version);
+    unless ($self->is_hash_valid($hash)) {
+        return $self->_error_reason('invalid_hash');
+    }
+
+    my $ticket = $self->unserialize_ticket($data)
+        or return $self->_error_reason('malformed_ticket');
+
+    unless ($r->request_time < $$ticket{expires}) {
+        return $self->_error_reason('expired_ticket');
+    }
+
+    unless (($secret, $version) = $self->fetch_secret($$ticket{version})) {
+        # can't get server secret
+        return $self->_error_reason('missing_secret');
+    }
+
+    if ($self->_ticket_idle_timeout($hash)) {
+        # user has exceeded idle-timeout
+        $self->delete_hash($hash);
+        return $self->_error_reason('idle_timeout');
+    }
+
+    unless ($self->_is_ticket_signature_valid($data, $hash, $secret)) {
+        return $self->_error_reason('tampered_hash');
+    }
+
+    # otherwise, everything is ok
+    $self->_update_ticket_timestamp($hash);
+
+    return $ticket;
+}
+
+sub _is_ticket_signature_valid {
+    my ($self, $data, $hash, $secret) = @_;
+
+    my @fields = ($secret, $data);
+
+    if ($self->get_config('TicketCheckIP')) {
+        my $ip = $self->request->connection->remote_ip;
+        push @fields, $ip;
+    }
+
+    if ($self->get_config('TicketCheckBrowser')) {
+        push @fields, $self->user_agent;
+    }
+
+    warn "FIELDS: [@fields]\n" if DEBUGGING;
+
+    my $newhash = $self->hash_for(@fields);
+
+    if ($newhash eq $hash) {
+        return 1;
+    }
+    else {
+        return 0;
     }
 }
 
@@ -298,7 +375,9 @@ sub make_ticket {
 
     my ($secret) = $self->fetch_secret($$ticket{version});
 
-    my @fields = ($secret, @$ticket{qw(version time expires user)});
+    my $data = $self->serialize_ticket($ticket);
+
+    my @fields = ($secret, $data);
 
     # only add ip if TicketCheckIP is on.
     if ($self->get_config('TicketCheckIP')) {
@@ -311,8 +390,6 @@ sub make_ticket {
 
     my $hash = $self->hash_for(@fields);
 
-    $$ticket{hash} = $self->hash_for(@fields);
-
     eval {
         $self->save_hash($hash);
     };
@@ -322,7 +399,19 @@ sub make_ticket {
         return;
     }
 
-    return $self->_pack_ticket($ticket);
+    return join '--', $hash, $data;
+}
+
+sub serialize_ticket {
+    my ($self, $hashref) = @_;
+
+    return MIME::Base64::encode( Storable::nfreeze($hashref), '' );
+}
+
+sub unserialize_ticket {
+    my ($self, $data) = @_;
+
+    return Storable::thaw( MIME::Base64::decode($data) );
 }
 
 sub new_ticket_for {
@@ -345,105 +434,9 @@ sub delete_ticket {
     my $key = $self->key($r);
     warn "delete_ticket: key $key" if DEBUGGING;
 
-    my %ticket = $self->_unpack_ticket($key);
+    my ($hash) = split '--', $key or return;
 
-    $self->delete_hash($ticket{'hash'});
-}
-
-sub check_ticket_format {
-    my ($self, %key) = @_;
-
-    $self->request->log_error("key is ".join(' ', %key)) if DEBUGGING;
-    for my $param (qw(version time user expires hash)) {
-        return 0 unless defined $key{$param};
-    }
-
-    return 1;
-}
-
-# unpack ticket cookie string to hash
-sub _unpack_ticket {
-    my ($self, $key) = @_;
-
-    return unless defined $key;
-
-    my @attrs = split ':', $key;
-
-    # odd number of attrs is not a valid key
-    return unless @attrs % 2 == 0;
-
-    return @attrs;
-}
-
-# pack ticket hashref into a string
-sub _pack_ticket {
-    my ($self, $ticket) = @_;
-    return join ':', %$ticket;
-}
-
-sub verify_ticket {
-    my ($self, $key) = @_;
-
-    my $r = $self->request;
-
-    warn "ticket is $key\n" if DEBUGGING;
-    my ($secret, $sec_version);
-    my %ticket = $self->_unpack_ticket($key);
-
-    unless ($self->check_ticket_format(%ticket)) {
-        $r->subprocess_env(AuthTicketReason => 'malformed_ticket');
-        return 0;
-    }
-    unless ($self->is_hash_valid($ticket{'hash'})) {
-        $r->subprocess_env(AuthTicketReason => 'invalid_hash');
-        return 0;
-    }
-    unless ($r->request_time < $ticket{'expires'}) {
-        $r->subprocess_env(AuthTicketReason => 'expired_ticket');
-        return 0;
-    }
-    unless (($secret, $sec_version) = $self->fetch_secret($ticket{'version'})) {
-        # can't get server secret
-        $r->subprocess_env(AuthTicketReason => 'missing_secret');
-        return 0;
-    }
-    if ($self->_ticket_idle_timeout($ticket{'hash'})) {
-        # user has exceeded idle-timeout
-        $r->subprocess_env(AuthTicketReason => 'idle_timeout');
-        $self->delete_hash($ticket{'hash'});
-        return 0;
-    }
-
-    # create a new hash and verify that it matches the supplied hash
-    # (prevents tampering with the cookie)
-
-    my @fields = ($secret, @ticket{qw(version time expires user)});
-
-    if ($self->get_config('TicketCheckIP')) {
-        my $ip = $r->connection->remote_ip;
-        push @fields, $ip;
-    }
-
-    if ($self->get_config('TicketCheckBrowser')) {
-        push @fields, $self->user_agent;
-    }
-
-    warn "FIELDS: [@fields]\n" if DEBUGGING;
-
-    my $newhash = $self->hash_for(@fields);
-
-    unless ($newhash eq $ticket{'hash'}) {
-        # ticket hash does not match (ticket tampered with?)
-        $r->subprocess_env(AuthTicketReason => 'tampered_hash');
-        return 0;
-    }
-
-    # otherwise, everything is ok
-    $self->_update_ticket_timestamp($ticket{'hash'});
-
-    $self->set_user($ticket{user});
-
-    return 1;
+    $self->delete_hash($hash);
 }
 
 ########## SERVER SIDE HASH MANAGEMENT METHODS
@@ -634,13 +627,10 @@ sub secret_table {
     return split ':', $self->get_config('TicketSecretTable');
 }
 
-# subclass must provide
 sub push_handler { die "unimplemented" }
 
-# subclass must provide
 sub set_user { die "unimplemented" }
 
-# subclass must provide
 sub apache_const { die "unimplemented" }
 
 1;
@@ -655,7 +645,7 @@ Apache::AuthTicket::Base - Common methods for all Apache::AuthTicket versions.
 
 =head1 VERSION
 
-version 0.91
+version 0.92
 
 =head1 SYNOPSIS
 
@@ -679,6 +669,53 @@ and C<Apache2::AuthTicket>.
 
 This sets configuration values for a given AuthName.  This is an alternative to
 using PerlSetVar's to specify all of the configuration settings.
+
+=head2 parse_ticket
+
+ my $ok = $self->parse_ticket($ticket_string)
+
+Verify the ticket string.  If the ticket is invalid or tampered, the C<AuthTicketReason> subprocess_env setting will be set to one of the following:
+
+=over 4
+
+=item *
+
+malformed_ticket
+
+Ticket does not contain the required fields
+
+=item *
+
+invalid_hash
+
+Ticket hash is not found in the database
+
+=item *
+
+expired_ticket
+
+Ticket has expired
+
+=item *
+
+missing_secret
+
+Secret that signed this ticket was not found
+
+=item *
+
+idle_timeout
+
+Ticket idle timeout exceeded
+
+=item *
+
+tampered_hash
+
+Ticket has been tampered with.  The checksum does not match the checksum in the
+ticket
+
+=back
 
 =head2 sql
 
@@ -732,6 +769,18 @@ Returns the version of the current (most-recent) secret
 
 Creates a ticket string for the given username
 
+=head2 serialize_ticket
+
+ my $data = $self->serialize_ticket($hashref)
+
+Encode the hashref in a format suitable for sending in a HTTP cookie
+
+=head2 unserialize_ticket
+
+ my $hashref = $self->unserialize_ticket($data)
+
+Decode cookie data into hashref.  This is the opposite of serialize_ticket()
+
 =head2 new_ticket_for
 
  my $hashref = $self->new_ticket_for($username)
@@ -744,59 +793,6 @@ append extra fields to the ticket.
  $self->delete_ticket($r)
 
 Invalidates the ticket by expiring the cookie and deletes the hash from the database
-
-=head2 check_ticket_format
-
- my $ok = $self->check_ticket_format(%ticket)
-
-Check that the ticket contains the minimum required fields.
-
-=head2 verify_ticket
-
- my $ok = $self->verify_ticket($ticket_string)
-
-Verify the ticket string.  If the ticket is invalid or tampered, the C<AuthTicketReason> subprocess_env setting will be set to one of the following:
-
-=over 4
-
-=item *
-
-malformed_ticket
-
-Ticket does not contain the required fields
-
-=item *
-
-invalid_hash
-
-Ticket hash is not found in the database
-
-=item *
-
-expired_ticket
-
-Ticket has expired
-
-=item *
-
-missing_secret
-
-Secret that signed this ticket was not found
-
-=item *
-
-idle_timeout
-
-Ticket idle timeout exceeded
-
-=item *
-
-tampered_hash
-
-Ticket has been tampered with.  The checksum does not match the checksum in the
-ticket
-
-=back
 
 =head2 save_hash
 
@@ -882,6 +878,25 @@ Unpacks the config value C<TicketUserTable> into its components.
  my ($name, $hash_col, $timestamp_col) = $self->ticket_table
 
 Unpacks the config value C<TicketSecretTable> into its components.
+
+=head2 push_handler
+
+ $class->push_handler($name => sub { ... });
+
+B<Subclass Must Implement This>.  Push the given subroutine as a mod_perl
+handler
+
+=head2 set_user
+
+ $self->set_user($username)
+
+B<Subclass Must Implement This>.  Set the username for this request.
+
+=head2 apache_const
+
+ my $const = $self->apache_const($name)
+
+B<Subclass Must Implement This>.  Return the given apache constant.
 
 =head1 SOURCE
 

@@ -21,6 +21,8 @@ else {
 # must match value in SQLite DB
 my $Secret = 'mvkj39vek@#$R*njdea9@#';
 
+my $CookieFormat = qr/[0-9a-f]{32}\-\-[A-Za-z0-9+\/]+/;
+
 use_ok('Apache::AuthTicket::Base');
 
 Apache::TestRequest::user_agent(
@@ -43,7 +45,7 @@ $r = POST '/login', [
 isa_ok $r, 'HTTP::Response';
 is $r->code, 302, 'got 302 response';
 is $r->header('Location'), '/protected/index.html', 'Location header';
-like $r->header('Set-Cookie'), qr/\buser:programmer\b/, 'response sets cookie';
+like $r->header('Set-Cookie'), qr/$CookieFormat/, 'response sets cookie';
 
 # get the protected page.
 $r = GET '/protected/index.html';
@@ -78,7 +80,7 @@ isa_ok $r, 'HTTP::Response';
 is $r->code, 302, 'got 302 response';
 is $r->header('Location'), '/secure/protected/index.html', 'Location header';
 my $cookie = $r->header('Set-Cookie');
-like $cookie, qr/\buser:programmer\b/, 'response sets cookie';
+like $cookie, qr/AuthTicket_Sec=$CookieFormat/, 'response sets cookie';
 ok cookie_has_field($cookie, 'secure'), 'cookie has secure flag set';
 ok cookie_has_field($cookie, 'path=/secure'), 'cookie path = /secure';
 ok cookie_has_field($cookie, 'domain=.local'), 'cookie domain is .local';
@@ -90,10 +92,17 @@ isa_ok $r, 'HTTP::Response';
 is $r->code, 200, 'got 200 response';
 
 # lets tamper with the cookie. should get 403
-$cookie =~ s/expires:(\d+)/sprintf 'expires:%d', $1+1/e;
-$r = GET '/secure/protected/index.html', Cookie => $cookie;
-isa_ok $r, 'HTTP::Response';
-is $r->code, 403, 'tampered cookie got 403 response';
+{
+    my ($data) = $cookie =~ /--(.*?);/;
+    my $ticket = Apache::AuthTicket::Base->unserialize_ticket($data);
+    $$ticket{expires} += 1;
+
+    my $new_data = Apache::AuthTicket::Base->serialize_ticket($ticket);
+    $cookie =~ s/$data/$new_data/;
+    $r = GET '/secure/protected/index.html', Cookie => $cookie;
+    isa_ok $r, 'HTTP::Response';
+    is $r->code, 403, 'tampered cookie got 403 response';
+}
 
 sub cookie_has_field {
     my ($cookie, $expected) = @_;
@@ -116,10 +125,9 @@ sub check_hash {
 
     my ($string) = $cookie =~ /AuthTicket_[^=]+=(.*?);/;
 
-    my %ticket = split /:/, $string;
+    my ($hash, $data) = split '--', $string, 2;
 
-    my @fields = ($Secret,
-        @ticket{qw(version time expires user)});
+    my @fields = ($Secret, $data);
 
     if ($opt{ip}) {
         push @fields, '127.0.0.1';
@@ -129,10 +137,10 @@ sub check_hash {
         push @fields, Apache::TestRequest::user_agent()->agent;
     }
 
-    my $hash = Apache::AuthTicket::Base->hash_for(@fields);
+    my $check = Apache::AuthTicket::Base->hash_for(@fields);
 
-    unless ($hash eq $ticket{hash}) {
-        diag "Hash mismatch: $hash != $ticket{hash}";
+    unless ($check eq $hash) {
+        diag "Hash mismatch: $hash != $check";
         return 0;
     }
 

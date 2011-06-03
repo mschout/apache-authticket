@@ -835,13 +835,30 @@ sub secret_table {
     return split ':', $self->get_config('TicketSecretTable');
 }
 
-# subclass must provide
+=method push_handler
+
+ $class->push_handler($name => sub { ... });
+
+B<Subclass Must Implement This>.  Push the given subroutine as a mod_perl
+handler
+
+=cut
 sub push_handler { die "unimplemented" }
 
-# subclass must provide
+=method set_user
+
+ $self->set_user($username)
+
+B<Subclass Must Implement This>.  Set the username for this request.
+=cut
 sub set_user { die "unimplemented" }
 
-# subclass must provide
+=method apache_const
+
+ my $const = $self->apache_const($name)
+
+B<Subclass Must Implement This>.  Return the given apache constant.
+=cut
 sub apache_const { die "unimplemented" }
 
 1;

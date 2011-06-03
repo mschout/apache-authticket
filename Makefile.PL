@@ -16,7 +16,9 @@ my %conf = (
         'DBI'           => 0,
         'Digest::MD5'   => 0,
         'SQL::Abstract' => 0,
-        'Test::More'    => 0
+        'Test::More'    => 0,
+        'Storable'      => 0,
+        'MIME::Base64'  => 0
     },
     clean         => {
         FILES => \@CLEAN_FILES

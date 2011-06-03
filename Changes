@@ -1,4 +1,6 @@
 {{$NEXT}}
+
+0.92  2011-06-03
 *** Ticket Format Has Changed ***
     Tickets are now opaque, and are strings that include the signature hash,
         and the ticket data in MIME::Base64 encoding. This ensures that fields

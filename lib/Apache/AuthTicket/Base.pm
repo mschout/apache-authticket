@@ -321,7 +321,7 @@ sub logout ($$) {
     $self->delete_ticket($r);
     $self->next::method($r); # AuthCookie logout
 
-    $r->err_headers_out->add('Location' => $self->{TicketLogoutURI});
+    $r->headers_out->add(Location => $self->get_config('TicketLogoutURI'));
 
     return $class->apache_const('REDIRECT');
 }

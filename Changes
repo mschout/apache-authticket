@@ -1,4 +1,5 @@
 {{$NEXT}}
+    fixed logout set Location header (broken in 0.92)
 
 0.92  2011-06-03
 *** Ticket Format Has Changed ***

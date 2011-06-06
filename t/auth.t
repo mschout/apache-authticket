@@ -15,7 +15,7 @@ elsif (not have_module('LWP::UserAgent')) {
     plan skip_all => 'LWP::UserAgent is not installed';
 }
 else {
-    plan tests => 33;
+    plan tests => 34;
 }
 
 # must match value in SQLite DB
@@ -58,6 +58,7 @@ $r = GET '/protected/logout';
 isa_ok $r, 'HTTP::Response';
 is $r->code, 302, 'got 302 response from logout';
 like $r->header('Set-Cookie'), qr/::AuthTicket_Protected=;\s+/, 'Cookie was cleared';
+is $r->header('Location'), '/protected/index.html', 'Logout sets location header';
 
 # make sure we really logged out.
 $r = GET '/protected/index.html';

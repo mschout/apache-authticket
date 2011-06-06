@@ -1,6 +1,6 @@
 package Apache::AuthTicket;
 BEGIN {
-  $Apache::AuthTicket::VERSION = '0.92';
+  $Apache::AuthTicket::VERSION = '0.93';
 }
 
 # ABSTRACT: Cookie Based Access and Authorization Module
@@ -52,7 +52,7 @@ Apache::AuthTicket - Cookie Based Access and Authorization Module
 
 =head1 VERSION
 
-version 0.92
+version 0.93
 
 =head1 SYNOPSIS
 

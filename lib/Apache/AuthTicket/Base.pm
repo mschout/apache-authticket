@@ -1,6 +1,6 @@
 package Apache::AuthTicket::Base;
 BEGIN {
-  $Apache::AuthTicket::Base::VERSION = '0.92';
+  $Apache::AuthTicket::Base::VERSION = '0.93';
 }
 
 # ABSTRACT: Common methods for all Apache::AuthTicket versions.
@@ -122,7 +122,7 @@ sub parse_ticket {
         return $self->_error_reason('missing_secret');
     }
 
-    if ($self->_ticket_idle_timeout($hash)) {
+    if ($self->_ticket_idle_timeout($hash, $ticket)) {
         # user has exceeded idle-timeout
         $self->delete_hash($hash);
         return $self->_error_reason('idle_timeout');
@@ -267,7 +267,7 @@ sub logout ($$) {
     $self->delete_ticket($r);
     $self->next::method($r); # AuthCookie logout
 
-    $r->err_headers_out->add('Location' => $self->{TicketLogoutURI});
+    $r->headers_out->add(Location => $self->get_config('TicketLogoutURI'));
 
     return $class->apache_const('REDIRECT');
 }
@@ -463,12 +463,12 @@ sub _update_ticket_timestamp {
     }
 }
 
-# boolean _ticket_idle_timeout(String hash)
+# boolean _ticket_idle_timeout(String hash, Hashref ticket)
 #
 # return true if the ticket table timestamp is older than the IdleTimeout
 # value.
 sub _ticket_idle_timeout {
-    my ($self, $hash) = @_;
+    my ($self, $hash, $ticket) = @_;
 
     my $idle = $self->get_config('TicketIdleTimeout') * 60;
     return 0 unless $idle;       # if not timeout set, its still valid.
@@ -645,7 +645,7 @@ Apache::AuthTicket::Base - Common methods for all Apache::AuthTicket versions.
 
 =head1 VERSION
 
-version 0.92
+version 0.93
 
 =head1 SYNOPSIS
 

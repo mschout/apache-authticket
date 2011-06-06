@@ -1,3 +1,7 @@
+0.93  2011-06-06
+    fixed logout set Location header (broken in 0.92)
+    added ticket object to _ticket_idle_timeout() args
+
 0.92  2011-06-03
 *** Ticket Format Has Changed ***
     Tickets are now opaque, and are strings that include the signature hash,

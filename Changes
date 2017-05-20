@@ -1,4 +1,6 @@
 {{$NEXT}}
+  - use Test::Signature for the signature test
+  - make signature test an AUTHOR test.
 
 0.93  2011-06-06
     fixed logout set Location header (broken in 0.92)

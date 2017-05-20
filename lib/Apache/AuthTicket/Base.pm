@@ -172,13 +172,26 @@ sub parse_ticket {
     return $ticket;
 }
 
+sub _client_ip {
+    my $self = shift;
+
+    my $conn = $self->request->connection;
+
+    if ($conn->can('client_ip')) {      # 2.4+
+        return $conn->client_ip;
+    }
+
+    # apache < 2.4
+    return $conn->remote_ip;
+}
+
 sub _is_ticket_signature_valid {
     my ($self, $data, $hash, $secret) = @_;
 
     my @fields = ($secret, $data);
 
     if ($self->get_config('TicketCheckIP')) {
-        my $ip = $self->request->connection->remote_ip;
+        my $ip = $self->_client_ip;
         push @fields, $ip;
     }
 
@@ -476,7 +489,7 @@ sub make_ticket {
 
     # only add ip if TicketCheckIP is on.
     if ($self->get_config('TicketCheckIP')) {
-        push @fields, $self->request->connection->remote_ip;
+        push @fields, $self->_client_ip;
     }
 
     if ($self->get_config('TicketCheckBrowser')) {

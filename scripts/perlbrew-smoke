@@ -74,6 +74,8 @@ install_cpan_deps() {
 smoke_perl() {
     local variant=$1
 
+    [ -f Makefile ] && make distclean
+
     perlbrew use $variant
 
     check_perlbrew
@@ -83,8 +85,6 @@ smoke_perl() {
     fi
 
     install_cpan_deps
-
-    [ -f Makefile ] && make clean
 
     perl Makefile.PL && make test
 }
